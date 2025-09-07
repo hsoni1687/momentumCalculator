@@ -9,10 +9,37 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
     environment:
-      - PYTHONPATH=/app/src:/app/config
-    restart: unless-stopped
+      - PYTHONPATH=/app
+    command: >
+      sh -c "
+        echo '🚀 Starting Momentum Calculator...' &&
+        python src/database_preparation.py --prepare-database &&
+        echo '✅ Database preparation completed' &&
+        streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+      "
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
+
+  # Optional: Add a separate database service for testing
+  test-database:
+    image: alpine:latest
+    volumes:
+      - ./data:/data
+    command: >
+      sh -c "
+        apk add --no-cache sqlite &&
+        echo '📊 Database files:' &&
+        ls -la /data/ &&
+        echo '🔍 Database structure:' &&
+        sqlite3 /data/stock_data.db '.schema' &&
+        echo '📈 Record counts:' &&
+        sqlite3 /data/stock_data.db 'SELECT COUNT(*) as stock_metadata FROM stockMetadata;' &&
+        sqlite3 /data/stock_data.db 'SELECT COUNT(*) as ticker_price FROM tickerPrice;' &&
+        sqlite3 /data/stock_data.db 'SELECT COUNT(DISTINCT stock) as unique_stocks FROM tickerPrice;'
+      "
+    depends_on:
+      - momentum-calculator

@@ -23,7 +23,7 @@ from data_fetcher import IndianStockDataFetcher
 from momentum_calculator import MomentumCalculator
 from database import StockDatabase
 from stock_lists import get_all_stocks
-from startup_upserts import run_startup_upserts, get_database_summary
+from database_preparation import DatabasePreparation
 
 # Configure logging
 logging.basicConfig(
@@ -462,29 +462,45 @@ class MomentumWebApp:
 
 def main():
     """Main function"""
-    # Run startup upserts to ensure data consistency
-    st.info("🔄 Initializing database and running startup upserts...")
+    # Initialize database using the new preparation system
+    st.info("🔄 Initializing database...")
     
     try:
-        # Run startup upserts
-        with st.spinner("Running startup upserts..."):
-            upsert_results = run_startup_upserts()
+        # Create database preparation instance
+        db_prep = DatabasePreparation()
         
-        if upsert_results['overall_success']:
-            st.success("✅ Database initialization completed successfully")
+        # Check if database exists and is properly initialized
+        verification = db_prep.verify_database()
+        
+        if not verification or not verification.get('tables_created'):
+            # Database doesn't exist or is empty, prepare it
+            st.info("📋 Preparing database for first-time setup...")
             
-            # Show database summary
-            with st.expander("📊 Database Summary", expanded=False):
-                summary = get_database_summary()
-                st.text(summary)
+            with st.spinner("Creating tables and populating initial data..."):
+                success = db_prep.prepare_database()
+            
+            if success:
+                st.success("✅ Database preparation completed successfully")
+            else:
+                st.error("❌ Database preparation failed")
+                return
         else:
-            st.error("❌ Database initialization failed")
-            if upsert_results.get('errors'):
-                for error in upsert_results['errors']:
-                    st.error(f"Error: {error}")
+            st.success("✅ Database already initialized")
+        
+        # Show database summary
+        with st.expander("📊 Database Summary", expanded=False):
+            verification = db_prep.verify_database()
+            if verification:
+                st.write(f"**Tables:** {', '.join(verification['tables_created'])}")
+                st.write(f"**Record Counts:** {verification['record_counts']}")
+                st.write(f"**Stocks with Price Data:** {verification['unique_stocks_with_price']}")
+                st.write(f"**Date Range:** {verification['date_range']}")
+                st.write(f"**Database Size:** {verification['database_size_mb']:.2f} MB")
+            else:
+                st.error("Could not retrieve database summary")
     
     except Exception as e:
-        st.error(f"❌ Error during startup: {e}")
+        st.error(f"❌ Error during database initialization: {e}")
         # Fallback to old initialization method
         initialize_database_if_empty()
     
