@@ -139,7 +139,7 @@ class MomentumCalculator:
         Combines multiple momentum factors with quality adjustments
         """
         # Check if hist_data is valid and has enough data
-        if hist_data is None or len(hist_data) < 120:
+        if hist_data is None:
             return {
                 'total_score': 0,
                 'raw_momentum_6m': 0,
@@ -164,14 +164,40 @@ class MomentumCalculator:
                     'consistency_score': 0,
                     'trend_strength': 0
                 }
+            
+            # Check if we have enough data points
+            if hasattr(hist_data, 'shape') and hist_data.shape[0] < 120:
+                return {
+                    'total_score': 0,
+                    'raw_momentum_6m': 0,
+                    'raw_momentum_3m': 0,
+                    'raw_momentum_1m': 0,
+                    'volatility_adjusted': 0,
+                    'smooth_momentum': 0,
+                    'consistency_score': 0,
+                    'trend_strength': 0
+                }
         except Exception:
-            # If there's any issue with the empty check, continue
+            # If there's any issue with the checks, continue
             pass
         
         # Get close prices - use uppercase 'Close' column
         try:
             close_prices = hist_data['Close']
             returns = hist_data['Returns'].dropna()
+            
+            # Ensure we have a proper datetime index
+            if not isinstance(hist_data.index, pd.DatetimeIndex):
+                if 'Date' in hist_data.columns:
+                    hist_data = hist_data.set_index('Date')
+                    close_prices = hist_data['Close']
+                    returns = hist_data['Returns'].dropna()
+                else:
+                    # Create a dummy datetime index
+                    hist_data.index = pd.date_range('2024-01-01', periods=len(hist_data), freq='D')
+                    close_prices = hist_data['Close']
+                    returns = hist_data['Returns'].dropna()
+                    
         except KeyError as e:
             logger.error(f"Missing required column in historical data: {e}")
             return {
@@ -324,14 +350,21 @@ class MomentumCalculator:
             else:
                 logger.warning(f"No historical data found for {symbol}")
         
-        return pd.DataFrame(results)
+        return results
     
     def rank_stocks(self, momentum_df, top_n=20):
         """
         Rank stocks by momentum score and return top N
         """
-        if momentum_df is None or len(momentum_df) == 0:
+        if momentum_df is None:
             return pd.DataFrame()
+        
+        # Check if DataFrame is empty using shape
+        try:
+            if hasattr(momentum_df, 'shape') and momentum_df.shape[0] == 0:
+                return pd.DataFrame()
+        except Exception:
+            pass
         
         # Additional check for empty DataFrame
         try:

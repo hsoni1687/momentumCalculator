@@ -32,50 +32,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def initialize_database_if_empty():
-    """Initialize database with stock data if it's empty"""
-    try:
-        # Check if database is empty
-        db_path = os.path.join(os.path.dirname(__file__), 'data', 'stock_data.db')
-        db = StockDatabase(db_path)
-        
-        # Get stock count
-        metadata_df = db.get_stock_metadata()
-        stock_count = len(metadata_df)
-        
-        if stock_count == 0:
-            logger.info("Database is empty. Initializing with stock data...")
-            
-            # Get all stocks from stock_lists.py
-            all_stocks = get_all_stocks()
-            logger.info(f"Found {len(all_stocks)} stocks in stock_lists.py")
-            
-            # Prepare stock metadata as DataFrame for database
-            stock_data = []
-            for stock in all_stocks:
-                stock_data.append({
-                    'symbol': stock['symbol'],
-                    'company_name': stock['company_name'],
-                    'market_cap': stock['market_cap'],
-                    'sector': stock['sector'],
-                    'exchange': stock['exchange']
-                })
-            
-            # Convert to DataFrame
-            stock_df = pd.DataFrame(stock_data)
-            
-            # Store stock metadata in database
-            db.store_stock_metadata(stock_df)
-            logger.info(f"Successfully initialized database with {len(stock_df)} stocks")
-            
-            return True
-        else:
-            logger.info(f"Database already has {stock_count} stocks. Skipping initialization.")
-            return False
-            
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
-        return False
+# Removed old database initialization function - now using database_preparation.py
 
 # Page configuration
 st.set_page_config(
@@ -158,7 +115,7 @@ class MomentumWebApp:
                 for _, stock in stocks_df.iterrows():
                     symbol = stock['symbol']
                     hist_data = self.data_fetcher.get_historical_data(symbol)
-                    if not hist_data.empty:
+                    if hist_data is not None and not hist_data.empty:
                         historical_data[symbol] = hist_data
                 
                 # Cache the data
@@ -200,7 +157,7 @@ class MomentumWebApp:
                                 'raw_momentum_3m': score_data['raw_momentum_3m'],
                                 'raw_momentum_1m': score_data['raw_momentum_1m'],
                                 'smooth_momentum': score_data['smooth_momentum'],
-                                'vol_adj_momentum': score_data['vol_adj_momentum'],
+                                'volatility_adjusted': score_data['volatility_adjusted'],
                                 'consistency_score': score_data['consistency_score'],
                                 'trend_strength': score_data['trend_strength'],
                                 'momentum_12_2': score_data['momentum_12_2'],
@@ -234,7 +191,7 @@ class MomentumWebApp:
                         stocks_df, historical_data
                     )
                 
-                if momentum_results:
+                if momentum_results and len(momentum_results) > 0:
                     momentum_df = pd.DataFrame(momentum_results)
                     momentum_df = momentum_df.sort_values('total_score', ascending=False)
                     return momentum_df
@@ -261,7 +218,7 @@ class MomentumWebApp:
         display_columns = [
             'symbol', 'company_name', 'market_cap', 'total_score',
             'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
-            'smooth_momentum', 'vol_adj_momentum', 'consistency_score',
+            'smooth_momentum', 'volatility_adjusted', 'consistency_score',
             'trend_strength', 'momentum_12_2', 'fip_quality'
         ]
         
@@ -283,7 +240,7 @@ class MomentumWebApp:
         # Format percentage columns
         percentage_columns = [
             'total_score', 'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
-            'smooth_momentum', 'vol_adj_momentum', 'consistency_score', 'trend_strength',
+            'smooth_momentum', 'volatility_adjusted', 'consistency_score', 'trend_strength',
             'momentum_12_2', 'fip_quality'
         ]
         
@@ -309,7 +266,7 @@ class MomentumWebApp:
             'raw_momentum_3m': '3M Momentum',
             'raw_momentum_1m': '1M Momentum',
             'smooth_momentum': 'Smooth Momentum',
-            'vol_adj_momentum': 'Vol-Adj Momentum',
+            'volatility_adjusted': 'Vol-Adj Momentum',
             'consistency_score': 'Consistency',
             'trend_strength': 'Trend Strength',
             'momentum_12_2': '12-2 Momentum',
@@ -501,8 +458,7 @@ def main():
     
     except Exception as e:
         st.error(f"❌ Error during database initialization: {e}")
-        # Fallback to old initialization method
-        initialize_database_if_empty()
+        st.stop()
     
     app = MomentumWebApp()
     app.run()
