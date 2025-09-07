@@ -21,6 +21,8 @@ import plotly.graph_objects as go
 # Import our modules
 from data_fetcher import IndianStockDataFetcher
 from momentum_calculator import MomentumCalculator
+from database import StockDatabase
+from stock_lists import get_all_stocks
 
 # Configure logging
 logging.basicConfig(
@@ -28,6 +30,51 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+def initialize_database_if_empty():
+    """Initialize database with stock data if it's empty"""
+    try:
+        # Check if database is empty
+        db_path = os.path.join(os.path.dirname(__file__), 'data', 'stock_data.db')
+        db = StockDatabase(db_path)
+        
+        # Get stock count
+        metadata_df = db.get_stock_metadata()
+        stock_count = len(metadata_df)
+        
+        if stock_count == 0:
+            logger.info("Database is empty. Initializing with stock data...")
+            
+            # Get all stocks from stock_lists.py
+            all_stocks = get_all_stocks()
+            logger.info(f"Found {len(all_stocks)} stocks in stock_lists.py")
+            
+            # Prepare stock metadata as DataFrame for database
+            stock_data = []
+            for stock in all_stocks:
+                stock_data.append({
+                    'symbol': stock['symbol'],
+                    'company_name': stock['company_name'],
+                    'market_cap': stock['market_cap'],
+                    'sector': stock['sector'],
+                    'exchange': stock['exchange']
+                })
+            
+            # Convert to DataFrame
+            stock_df = pd.DataFrame(stock_data)
+            
+            # Store stock metadata in database
+            db.store_stock_metadata(stock_df)
+            logger.info(f"Successfully initialized database with {len(stock_df)} stocks")
+            
+            return True
+        else:
+            logger.info(f"Database already has {stock_count} stocks. Skipping initialization.")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        return False
 
 # Page configuration
 st.set_page_config(
@@ -413,6 +460,9 @@ class MomentumWebApp:
 
 def main():
     """Main function"""
+    # Initialize database if empty (for Streamlit Cloud deployment)
+    initialize_database_if_empty()
+    
     app = MomentumWebApp()
     app.run()
 
