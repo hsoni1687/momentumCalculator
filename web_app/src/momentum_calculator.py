@@ -127,7 +127,7 @@ class MomentumCalculator:
         Calculate monthly returns from daily price data
         """
         # Resample to monthly and calculate returns
-        monthly_prices = price_data.resample('M').last()
+        monthly_prices = price_data.resample('ME').last()
         monthly_returns = monthly_prices.pct_change().dropna()
         
         # Return the last N months
