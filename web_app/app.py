@@ -23,7 +23,7 @@ from data_fetcher import IndianStockDataFetcher
 from momentum_calculator import MomentumCalculator
 from database import StockDatabase
 from stock_lists import get_all_stocks
-from database_preparation import DatabasePreparation
+from database_simple import SimpleDatabase
 
 # Configure logging
 logging.basicConfig(
@@ -44,7 +44,7 @@ st.set_page_config(
 
 class MomentumWebApp:
     def __init__(self):
-        self.data_fetcher = IndianStockDataFetcher()
+        self.db = SimpleDatabase()
         self.momentum_calculator = MomentumCalculator()
         self.cache = {}
     
@@ -76,10 +76,23 @@ class MomentumWebApp:
         
         with st.spinner(loading_msg):
             try:
-                # Get top stocks by market cap with filters
-                top_stocks = self.data_fetcher.get_top_stocks_by_market_cap(
-                    n_stocks, industry=industry, sector=sector
-                )
+                # Get stock metadata with filters
+                metadata_query = "SELECT * FROM stockMetadata WHERE 1=1"
+                params = []
+                
+                if industry:
+                    metadata_query += " AND industry = %s"
+                    params.append(industry)
+                
+                if sector:
+                    metadata_query += " AND sector = %s"
+                    params.append(sector)
+                
+                metadata_query += " ORDER BY market_cap DESC"
+                if n_stocks:
+                    metadata_query += f" LIMIT {n_stocks}"
+                
+                top_stocks = self.db.execute_query(metadata_query, tuple(params))
                 
                 if top_stocks.empty:
                     filter_info = []
@@ -102,6 +115,26 @@ class MomentumWebApp:
                 st.error(f"Error loading stock data: {e}")
                 return pd.DataFrame()
     
+    def get_available_industries(self):
+        """Get available industries from database"""
+        try:
+            query = "SELECT DISTINCT industry FROM stockMetadata WHERE industry IS NOT NULL ORDER BY industry"
+            result = self.db.execute_query(query)
+            return result['industry'].tolist() if not result.empty else []
+        except Exception as e:
+            st.error(f"Error getting industries: {e}")
+            return []
+    
+    def get_available_sectors(self):
+        """Get available sectors from database"""
+        try:
+            query = "SELECT DISTINCT sector FROM stockMetadata WHERE sector IS NOT NULL ORDER BY sector"
+            result = self.db.execute_query(query)
+            return result['sector'].tolist() if not result.empty else []
+        except Exception as e:
+            st.error(f"Error getting sectors: {e}")
+            return []
+
     def load_historical_data(self, stocks_df, use_cache=True):
         """Load historical data for stocks"""
         cache_key = "historical_data"
@@ -113,10 +146,15 @@ class MomentumWebApp:
             try:
                 historical_data = {}
                 for _, stock in stocks_df.iterrows():
-                    symbol = stock['symbol']
-                    hist_data = self.data_fetcher.get_historical_data(symbol)
-                    if hist_data is not None and not hist_data.empty:
-                        historical_data[symbol] = hist_data
+                    symbol = stock['stock']  # Changed from 'symbol' to 'stock'
+                    price_data = self.db.get_price_data(symbol)
+                    if not price_data.empty:
+                        # Convert to the expected format
+                        price_data['Date'] = pd.to_datetime(price_data['date'])
+                        price_data.set_index('Date', inplace=True)
+                        price_data = price_data[['open', 'high', 'low', 'close', 'volume']]
+                        price_data.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+                        historical_data[symbol] = price_data
                 
                 # Cache the data
                 self.cache[cache_key] = historical_data
@@ -131,15 +169,15 @@ class MomentumWebApp:
         with st.spinner("Calculating momentum scores..."):
             try:
                 # Check if we have cached momentum scores for today
-                cached_scores = self.data_fetcher.db.get_momentum_scores_today()
+                cached_scores = self.db.get_momentum_scores_today()
                 
                 if len(cached_scores) >= len(stocks_df) * 0.8:  # If we have 80%+ cached scores
                     st.info("Using cached momentum scores from today")
                     momentum_results = []
                     
                     for _, stock in stocks_df.iterrows():
-                        symbol = stock['symbol']
-                        cached_score = cached_scores[cached_scores['stock_symbol'] == symbol]
+                        symbol = stock['stock']
+                        cached_score = cached_scores[cached_scores['stock'] == symbol]
                         
                         if not cached_score.empty:
                             score_data = cached_score.iloc[0]
@@ -156,12 +194,14 @@ class MomentumWebApp:
                                 'raw_momentum_6m': score_data['raw_momentum_6m'],
                                 'raw_momentum_3m': score_data['raw_momentum_3m'],
                                 'raw_momentum_1m': score_data['raw_momentum_1m'],
-                                'smooth_momentum': score_data['smooth_momentum'],
-                                'volatility_adjusted': score_data['volatility_adjusted'],
-                                'consistency_score': score_data['consistency_score'],
-                                'trend_strength': score_data['trend_strength'],
-                                'momentum_12_2': score_data['momentum_12_2'],
-                                'fip_quality': score_data['fip_quality']
+                                'volatility_adjusted_6m': score_data['volatility_adjusted_6m'],
+                                'volatility_adjusted_3m': score_data['volatility_adjusted_3m'],
+                                'volatility_adjusted_1m': score_data['volatility_adjusted_1m'],
+                                'relative_strength_6m': score_data['relative_strength_6m'],
+                                'relative_strength_3m': score_data['relative_strength_3m'],
+                                'relative_strength_1m': score_data['relative_strength_1m'],
+                                'trend_score': score_data['trend_score'],
+                                'volume_score': score_data['volume_score']
                             })
                         else:
                             # Calculate fresh score for missing stocks
@@ -171,7 +211,7 @@ class MomentumWebApp:
                                 )
                                 if momentum_score:
                                     # Store in database
-                                    self.data_fetcher.db.store_momentum_scores(symbol, momentum_score)
+                                    self.db.store_momentum_scores(symbol, momentum_score)
                                     
                                     momentum_results.append({
                                         'symbol': symbol,
@@ -218,8 +258,9 @@ class MomentumWebApp:
         display_columns = [
             'symbol', 'company_name', 'market_cap', 'total_score',
             'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
-            'smooth_momentum', 'volatility_adjusted', 'consistency_score',
-            'trend_strength', 'momentum_12_2', 'fip_quality'
+            'volatility_adjusted_6m', 'volatility_adjusted_3m', 'volatility_adjusted_1m',
+            'relative_strength_6m', 'relative_strength_3m', 'relative_strength_1m',
+            'trend_score', 'volume_score'
         ]
         
         # Add optional columns if they exist
@@ -240,8 +281,9 @@ class MomentumWebApp:
         # Format percentage columns
         percentage_columns = [
             'total_score', 'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
-            'smooth_momentum', 'volatility_adjusted', 'consistency_score', 'trend_strength',
-            'momentum_12_2', 'fip_quality'
+            'volatility_adjusted_6m', 'volatility_adjusted_3m', 'volatility_adjusted_1m',
+            'relative_strength_6m', 'relative_strength_3m', 'relative_strength_1m',
+            'trend_score', 'volume_score'
         ]
         
         for col in percentage_columns:
@@ -265,12 +307,14 @@ class MomentumWebApp:
             'raw_momentum_6m': '6M Momentum',
             'raw_momentum_3m': '3M Momentum',
             'raw_momentum_1m': '1M Momentum',
-            'smooth_momentum': 'Smooth Momentum',
-            'volatility_adjusted': 'Vol-Adj Momentum',
-            'consistency_score': 'Consistency',
-            'trend_strength': 'Trend Strength',
-            'momentum_12_2': '12-2 Momentum',
-            'fip_quality': 'FIP Quality',
+            'volatility_adjusted_6m': 'Vol-Adj 6M',
+            'volatility_adjusted_3m': 'Vol-Adj 3M',
+            'volatility_adjusted_1m': 'Vol-Adj 1M',
+            'relative_strength_6m': 'Rel Strength 6M',
+            'relative_strength_3m': 'Rel Strength 3M',
+            'relative_strength_1m': 'Rel Strength 1M',
+            'trend_score': 'Trend Score',
+            'volume_score': 'Volume Score',
             'industry': 'Industry',
             'sector': 'Sector',
             'dividend_yield': 'Dividend Yield',
@@ -346,8 +390,8 @@ class MomentumWebApp:
         st.sidebar.subheader("🔍 Filter by Industry/Sector")
         
         # Get available industries and sectors
-        available_industries = self.data_fetcher.get_available_industries()
-        available_sectors = self.data_fetcher.get_available_sectors()
+        available_industries = self.get_available_industries()
+        available_sectors = self.get_available_sectors()
         
         # Industry filter
         selected_industry = st.sidebar.selectbox(
@@ -371,12 +415,12 @@ class MomentumWebApp:
         use_cache = st.sidebar.checkbox("Use cached data", value=True)
         
         # Database stats (simplified)
-        db_stats = self.data_fetcher.get_database_stats()
+        db_stats = self.db.get_database_stats()
         if db_stats:
             st.sidebar.header("📊 Database Stats")
-            st.sidebar.metric("Total Stocks", db_stats.get('unique_stocks', 0))
-            st.sidebar.metric("Stocks with Price Data", db_stats.get('stocks_with_price_data', 0))
-            st.sidebar.metric("DB Size", f"{db_stats.get('db_size_mb', 0):.1f} MB")
+            st.sidebar.metric("Total Stocks", db_stats.get('unique_stocks_with_price', 0))
+            st.sidebar.metric("Stocks with Price Data", db_stats.get('unique_stocks_with_price', 0))
+            st.sidebar.metric("Price Records", db_stats.get('record_counts', {}).get('tickerprice', 0))
         
         # Main application flow
         if st.button("🚀 Calculate Momentum Scores", type="primary"):
@@ -419,45 +463,34 @@ class MomentumWebApp:
 
 def main():
     """Main function"""
-    # Initialize database using the new preparation system
-    st.info("🔄 Initializing database...")
+    # Initialize database
+    st.info("🔄 Connecting to database...")
     
     try:
-        # Create database preparation instance
-        db_prep = DatabasePreparation()
+        # Create database instance
+        db = SimpleDatabase()
         
-        # Check if database exists and is properly initialized
-        verification = db_prep.verify_database()
+        # Check if database is accessible
+        stats = db.get_database_stats()
         
-        if not verification or not verification.get('tables_created'):
-            # Database doesn't exist or is empty, prepare it
-            st.info("📋 Preparing database for first-time setup...")
-            
-            with st.spinner("Creating tables and populating initial data..."):
-                success = db_prep.prepare_database()
-            
-            if success:
-                st.success("✅ Database preparation completed successfully")
-            else:
-                st.error("❌ Database preparation failed")
-                return
-        else:
-            st.success("✅ Database already initialized")
+        if not stats or not stats.get('record_counts'):
+            st.error("❌ Database connection failed or no data found")
+            return
+        
+        st.success("✅ Database connected successfully")
         
         # Show database summary
         with st.expander("📊 Database Summary", expanded=False):
-            verification = db_prep.verify_database()
-            if verification:
-                st.write(f"**Tables:** {', '.join(verification['tables_created'])}")
-                st.write(f"**Record Counts:** {verification['record_counts']}")
-                st.write(f"**Stocks with Price Data:** {verification['unique_stocks_with_price']}")
-                st.write(f"**Date Range:** {verification['date_range']}")
-                st.write(f"**Database Size:** {verification['database_size_mb']:.2f} MB")
+            if stats:
+                st.write(f"**Tables:** {', '.join(stats.get('tables', []))}")
+                st.write(f"**Record Counts:** {stats.get('record_counts', {})}")
+                st.write(f"**Stocks with Price Data:** {stats.get('unique_stocks_with_price', 0)}")
+                st.write(f"**Date Range:** {stats.get('date_range', 'N/A')}")
             else:
                 st.error("Could not retrieve database summary")
     
     except Exception as e:
-        st.error(f"❌ Error during database initialization: {e}")
+        st.error(f"❌ Database connection failed: {e}")
         st.stop()
     
     app = MomentumWebApp()

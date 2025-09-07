@@ -20,7 +20,7 @@ MOMENTUM_SETTINGS = {
         'raw_momentum_6m': 0.3,      # Long-term momentum
         'raw_momentum_3m': 0.2,      # Medium-term momentum
         'smooth_momentum': 0.25,     # Smooth momentum (Frog in the Pan)
-        'vol_adj_momentum': 0.15,    # Risk-adjusted momentum
+        'volatility_adjusted': 0.15,    # Risk-adjusted momentum
         'consistency_score': 0.05,   # Consistency
         'trend_strength': 0.05       # Trend alignment
     },
@@ -28,7 +28,7 @@ MOMENTUM_SETTINGS = {
         'raw_momentum_6m': (-0.5, 1.0),   # -50% to +100%
         'raw_momentum_3m': (-0.3, 0.6),   # -30% to +60%
         'smooth_momentum': (-0.3, 0.6),   # -30% to +60%
-        'vol_adj_momentum': (-1, 1),      # -1 to +1
+        'volatility_adjusted': (-1, 1),      # -1 to +1
     }
 }
 

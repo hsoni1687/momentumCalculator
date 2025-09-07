@@ -18,6 +18,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config'))
 
 from stock_lists import get_all_stocks
+from database_postgres import DatabaseManager
 
 # Configure logging
 import os
@@ -47,7 +48,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class DatabasePreparation:
-    def __init__(self, db_path: str = 'data/stock_data.db'):
+    def __init__(self, db_path: str = 'data/stock_data.db', database_url: str = None):
+        self.db_manager = DatabaseManager(db_path=db_path, database_url=database_url)
         self.db_path = db_path
         self.ensure_directories()
     
@@ -191,13 +193,72 @@ class DatabasePreparation:
             logger.error(f"❌ Error populating stock metadata: {e}")
             return {'success': 0, 'failed': 0}
     
+    def populate_real_price_data(self) -> Dict[str, int]:
+        """Populate real price data for all stocks"""
+        try:
+            logger.info("📈 Populating real price data for all stocks...")
+            
+            # Import data fetcher
+            from data_fetcher import IndianStockDataFetcher
+            
+            # Initialize data fetcher
+            fetcher = IndianStockDataFetcher(self.db_path)
+            
+            # Get all stocks from metadata
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT stock FROM stockMetadata')
+                stocks = [row[0] for row in cursor.fetchall()]
+            
+            logger.info(f"Found {len(stocks)} stocks to populate with price data")
+            
+            success_count = 0
+            failed_count = 0
+            
+            # Process stocks in batches to avoid overwhelming the API
+            batch_size = 10
+            for i in range(0, len(stocks), batch_size):
+                batch = stocks[i:i + batch_size]
+                logger.info(f"Processing batch {i//batch_size + 1}/{(len(stocks) + batch_size - 1)//batch_size}")
+                
+                for stock in batch:
+                    try:
+                        # Fetch historical data for the stock using the public method
+                        hist_data = fetcher._fetch_from_api(stock, period='2y')
+                        
+                        if hist_data is not None and not hist_data.empty:
+                            success_count += 1
+                            logger.info(f"✅ Populated price data for {stock}")
+                        else:
+                            failed_count += 1
+                            logger.warning(f"⚠️ No price data available for {stock}")
+                            
+                    except Exception as e:
+                        failed_count += 1
+                        logger.error(f"❌ Error populating price data for {stock}: {e}")
+                
+                # Small delay between batches to be respectful to the API
+                import time
+                time.sleep(1)
+            
+            logger.info(f"✅ Real price data populated: {success_count} stocks, {failed_count} failed")
+            
+            return {
+                'success': success_count,
+                'failed': failed_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Error populating real price data: {e}")
+            return {'success': 0, 'failed': 1}
+
     def populate_sample_price_data(self) -> Dict[str, int]:
         """Populate sample price data for testing"""
         try:
             logger.info("📈 Populating sample price data...")
             
-            # Get a few sample stocks
-            sample_stocks = ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'HINDUNILVR']
+            # Get a broader set of sample stocks for better testing
+            sample_stocks = ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'HINDUNILVR', 'ITC', 'WIPRO', 'BHARTIARTL', 'SBIN', 'KOTAKBANK', 'LT', 'MARUTI', 'ASIANPAINT', 'NESTLEIND', 'BAJFINANCE']
             
             success_count = 0
             failed_count = 0
@@ -205,10 +266,10 @@ class DatabasePreparation:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
-                # Generate sample price data for the last 30 days
+                # Generate sample price data for the last 2 years
                 from datetime import timedelta
                 end_date = datetime.now().date()
-                start_date = end_date - timedelta(days=30)
+                start_date = end_date - timedelta(days=730)  # 2 years
                 
                 for stock in sample_stocks:
                     current_date = start_date
@@ -307,10 +368,17 @@ class DatabasePreparation:
                 logger.error("❌ Failed to populate stock metadata")
                 return False
             
-            # Step 3: Populate sample price data
-            price_result = self.populate_sample_price_data()
-            if price_result['success'] == 0:
-                logger.warning("⚠️ No sample price data populated")
+            # Step 3: Populate real price data (with fallback to sample data)
+            try:
+                price_result = self.populate_real_price_data()
+                if price_result['success'] == 0:
+                    logger.warning("⚠️ No real price data populated, falling back to sample data")
+                    # Fallback to sample data if real data fails
+                    price_result = self.populate_sample_price_data()
+            except Exception as e:
+                logger.error(f"❌ Error during price data population: {e}")
+                logger.info("📈 Falling back to sample data...")
+                price_result = self.populate_sample_price_data()
             
             # Step 4: Verify database
             verification = self.verify_database()

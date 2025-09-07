@@ -1,6 +1,28 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: momentum_calc
+      POSTGRES_USER: momentum_user
+      POSTGRES_PASSWORD: momentum_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./data/stock_metadata.csv:/docker-entrypoint-initdb.d/stock_metadata.csv
+      - ./data/ticker_price.csv:/docker-entrypoint-initdb.d/ticker_price.csv
+      - ./data/momentum_scores.csv:/docker-entrypoint-initdb.d/momentum_scores.csv
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U momentum_user -d momentum_calc"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Momentum Calculator App
   momentum-calculator:
     build: .
     ports:
@@ -10,11 +32,17 @@ services:
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
+      - DATABASE_URL=postgresql://momentum_user:momentum_pass@postgres:5432/momentum_calc
+      - DB_TYPE=postgresql
+    depends_on:
+      postgres:
+        condition: service_healthy
     command: >
       sh -c "
         echo '🚀 Starting Momentum Calculator...' &&
-        python src/database_preparation.py --prepare-database &&
-        echo '✅ Database preparation completed' &&
+        echo '⏳ Waiting for database to be ready...' &&
+        sleep 15 &&
+        echo '✅ Database should be ready with CSV data loaded' &&
         streamlit run app.py --server.port=8501 --server.address=0.0.0.0
       "
     healthcheck:
@@ -22,24 +50,24 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
-  # Optional: Add a separate database service for testing
-  test-database:
-    image: alpine:latest
-    volumes:
-      - ./data:/data
+  # Database inspection service
+  db-inspector:
+    image: postgres:15-alpine
+    environment:
+      PGPASSWORD: momentum_pass
+    depends_on:
+      - postgres
     command: >
       sh -c "
-        apk add --no-cache sqlite &&
-        echo '📊 Database files:' &&
-        ls -la /data/ &&
-        echo '🔍 Database structure:' &&
-        sqlite3 /data/stock_data.db '.schema' &&
+        echo '📊 Database tables:' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';" &&
         echo '📈 Record counts:' &&
-        sqlite3 /data/stock_data.db 'SELECT COUNT(*) as stock_metadata FROM stockMetadata;' &&
-        sqlite3 /data/stock_data.db 'SELECT COUNT(*) as ticker_price FROM tickerPrice;' &&
-        sqlite3 /data/stock_data.db 'SELECT COUNT(DISTINCT stock) as unique_stocks FROM tickerPrice;'
+        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(*) as stock_metadata FROM stockMetadata;' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(*) as ticker_price FROM tickerPrice;' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(DISTINCT stock) as unique_stocks FROM tickerPrice;'
       "
-    depends_on:
-      - momentum-calculator
+
+volumes:
+  postgres_data:

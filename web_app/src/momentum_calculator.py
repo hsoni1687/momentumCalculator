@@ -221,7 +221,7 @@ class MomentumCalculator:
         raw_momentum_1m = self.calculate_raw_momentum(close_prices, self.lookback_periods['momentum_1m'])
         
         # Volatility-adjusted momentum
-        vol_adj_momentum = self.calculate_volatility_adjusted_momentum(returns, 60)
+        volatility_adjusted = self.calculate_volatility_adjusted_momentum(returns, 60)
         
         # FIP (Frog in the Pan) momentum quality measure
         fip_quality = self.calculate_fip_momentum_quality(close_prices)
@@ -258,7 +258,7 @@ class MomentumCalculator:
             'raw_momentum_6m': 0.3,      # Long-term momentum
             'raw_momentum_3m': 0.2,      # Medium-term momentum
             'smooth_momentum': 0.25,     # Smooth momentum (Frog in the Pan)
-            'vol_adj_momentum': 0.15,    # Risk-adjusted momentum
+            'volatility_adjusted': 0.15,    # Risk-adjusted momentum
             'consistency_score': 0.05,   # Consistency
             'trend_strength': 0.05       # Trend alignment
         }
@@ -268,7 +268,7 @@ class MomentumCalculator:
             'raw_momentum_6m': max(0, min(1, (raw_momentum_6m + 0.5) / 1.0)),  # Assume -50% to +50% range
             'raw_momentum_3m': max(0, min(1, (raw_momentum_3m + 0.3) / 0.6)),  # Assume -30% to +30% range
             'smooth_momentum': max(0, min(1, (smooth_momentum + 0.3) / 0.6)),  # Assume -30% to +30% range
-            'vol_adj_momentum': max(0, min(1, (vol_adj_momentum + 1) / 2)),    # Assume -1 to +1 range
+            'volatility_adjusted': max(0, min(1, (volatility_adjusted + 1) / 2)),    # Assume -1 to +1 range
             'consistency_score': consistency_score,
             'trend_strength': trend_strength
         }
@@ -283,7 +283,7 @@ class MomentumCalculator:
             'raw_momentum_6m': raw_momentum_6m,
             'raw_momentum_3m': raw_momentum_3m,
             'raw_momentum_1m': raw_momentum_1m,
-            'volatility_adjusted': vol_adj_momentum,
+            'volatility_adjusted': volatility_adjusted,
             'smooth_momentum': smooth_momentum,
             'consistency_score': consistency_score,
             'trend_strength': trend_strength,
