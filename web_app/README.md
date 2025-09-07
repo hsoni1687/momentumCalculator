@@ -19,12 +19,18 @@ A web-based application for analyzing momentum in Indian stocks using the "Frog 
    pip install -r requirements.txt
    ```
 
-2. **Run the Application**
+2. **Setup Database (First Time Only)**
+   ```bash
+   python setup_database.py
+   ```
+   This will populate the database with initial stock data from `stock_lists.py`.
+
+3. **Run the Application**
    ```bash
    streamlit run app.py
    ```
 
-3. **Access the App**
+4. **Access the App**
    Open your browser to `http://localhost:8501`
 
 ### Docker Deployment
@@ -91,6 +97,26 @@ The application uses SQLite by default. The database file is stored in the `data
 ## API Endpoints
 
 The application provides a Streamlit web interface. For API access, consider adding FastAPI endpoints.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"No stocks found in database" Error**
+   ```bash
+   python setup_database.py
+   ```
+   This error occurs when the database is empty. Run the setup script to populate it with initial stock data.
+
+2. **Port Already in Use**
+   ```bash
+   streamlit run app.py --server.port 8502
+   ```
+
+3. **Database Connection Issues**
+   - Ensure the `data/` directory exists
+   - Check file permissions for the database file
+   - Run `python setup_database.py` to initialize the database
 
 ## Contributing
 
