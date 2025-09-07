@@ -282,21 +282,45 @@ class MomentumCalculator:
             # Get historical data for this stock
             if symbol in historical_data_dict:
                 hist_data = historical_data_dict[symbol]
-                momentum_scores = self.calculate_quality_momentum_score(hist_data)
-                
-                result = {
-                    'symbol': symbol,
-                    'company_name': company_name,
-                    'market_cap': market_cap,
-                    'sector': sector,
-                    'exchange': exchange,
-                    'industry': stock.get('industry', 'Unknown'),
-                    'dividend_yield': stock.get('dividend_yield', None),
-                    'roce': stock.get('roce', None),
-                    'roe': stock.get('roe', None),
-                    **momentum_scores
-                }
-                results.append(result)
+                try:
+                    momentum_scores = self.calculate_quality_momentum_score(hist_data)
+                    
+                    result = {
+                        'symbol': symbol,
+                        'company_name': company_name,
+                        'market_cap': market_cap,
+                        'sector': sector,
+                        'exchange': exchange,
+                        'industry': stock.get('industry', 'Unknown'),
+                        'dividend_yield': stock.get('dividend_yield', None),
+                        'roce': stock.get('roce', None),
+                        'roe': stock.get('roe', None),
+                        **momentum_scores
+                    }
+                    results.append(result)
+                except Exception as e:
+                    logger.error(f"Error calculating momentum for {symbol}: {e}")
+                    # Add a result with zero scores for this stock
+                    result = {
+                        'symbol': symbol,
+                        'company_name': company_name,
+                        'market_cap': market_cap,
+                        'sector': sector,
+                        'exchange': exchange,
+                        'industry': stock.get('industry', 'Unknown'),
+                        'dividend_yield': stock.get('dividend_yield', None),
+                        'roce': stock.get('roce', None),
+                        'roe': stock.get('roe', None),
+                        'total_score': 0,
+                        'raw_momentum_6m': 0,
+                        'raw_momentum_3m': 0,
+                        'raw_momentum_1m': 0,
+                        'volatility_adjusted': 0,
+                        'smooth_momentum': 0,
+                        'consistency_score': 0,
+                        'trend_strength': 0
+                    }
+                    results.append(result)
             else:
                 logger.warning(f"No historical data found for {symbol}")
         

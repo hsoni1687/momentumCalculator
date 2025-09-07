@@ -269,13 +269,17 @@ class StockDatabase:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
-                # Get total records
+                # Get total records from tickerPrice
                 cursor.execute('SELECT COUNT(*) FROM tickerPrice')
                 total_records = cursor.fetchone()[0]
                 
-                # Get unique stocks
+                # Get unique stocks from tickerPrice (stocks with price data)
                 cursor.execute('SELECT COUNT(DISTINCT stock) FROM tickerPrice')
-                unique_stocks = cursor.fetchone()[0]
+                stocks_with_price_data = cursor.fetchone()[0]
+                
+                # Get total stocks from stockMetadata (all stocks in database)
+                cursor.execute('SELECT COUNT(*) FROM stockMetadata')
+                total_stocks = cursor.fetchone()[0]
                 
                 # Get date range
                 cursor.execute('SELECT MIN(date), MAX(date) FROM tickerPrice')
@@ -286,7 +290,8 @@ class StockDatabase:
                 
                 return {
                     'total_records': total_records,
-                    'unique_stocks': unique_stocks,
+                    'unique_stocks': total_stocks,  # Show total stocks from metadata
+                    'stocks_with_price_data': stocks_with_price_data,  # Stocks with actual price data
                     'date_range': date_range,
                     'db_size_mb': round(db_size, 2)
                 }

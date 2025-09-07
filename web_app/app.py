@@ -417,6 +417,7 @@ class MomentumWebApp:
         if db_stats:
             st.sidebar.header("📊 Database Stats")
             st.sidebar.metric("Total Stocks", db_stats.get('unique_stocks', 0))
+            st.sidebar.metric("Stocks with Price Data", db_stats.get('stocks_with_price_data', 0))
             st.sidebar.metric("DB Size", f"{db_stats.get('db_size_mb', 0):.1f} MB")
         
         # Main application flow
