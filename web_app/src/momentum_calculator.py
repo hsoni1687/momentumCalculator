@@ -138,7 +138,8 @@ class MomentumCalculator:
         Calculate comprehensive quality momentum score
         Combines multiple momentum factors with quality adjustments
         """
-        if hist_data.empty or len(hist_data) < 120:
+        # Check if hist_data is valid and has enough data
+        if hist_data is None or len(hist_data) < 120:
             return {
                 'total_score': 0,
                 'raw_momentum_6m': 0,
@@ -150,9 +151,39 @@ class MomentumCalculator:
                 'trend_strength': 0
             }
         
+        # Additional check for empty DataFrame/Series
+        try:
+            if hasattr(hist_data, 'empty') and hist_data.empty:
+                return {
+                    'total_score': 0,
+                    'raw_momentum_6m': 0,
+                    'raw_momentum_3m': 0,
+                    'raw_momentum_1m': 0,
+                    'volatility_adjusted': 0,
+                    'smooth_momentum': 0,
+                    'consistency_score': 0,
+                    'trend_strength': 0
+                }
+        except Exception:
+            # If there's any issue with the empty check, continue
+            pass
+        
         # Get close prices - use uppercase 'Close' column
-        close_prices = hist_data['Close']
-        returns = hist_data['Returns'].dropna()
+        try:
+            close_prices = hist_data['Close']
+            returns = hist_data['Returns'].dropna()
+        except KeyError as e:
+            logger.error(f"Missing required column in historical data: {e}")
+            return {
+                'total_score': 0,
+                'raw_momentum_6m': 0,
+                'raw_momentum_3m': 0,
+                'raw_momentum_1m': 0,
+                'volatility_adjusted': 0,
+                'smooth_momentum': 0,
+                'consistency_score': 0,
+                'trend_strength': 0
+            }
         
         # Calculate momentum metrics using Alpha Architect methodology
         # Primary momentum measure: 12-2 momentum (12 months excluding last month)
@@ -275,8 +306,16 @@ class MomentumCalculator:
         """
         Rank stocks by momentum score and return top N
         """
-        if momentum_df.empty:
+        if momentum_df is None or len(momentum_df) == 0:
             return pd.DataFrame()
+        
+        # Additional check for empty DataFrame
+        try:
+            if hasattr(momentum_df, 'empty') and momentum_df.empty:
+                return pd.DataFrame()
+        except Exception:
+            # If there's any issue with the empty check, continue
+            pass
         
         # Sort by total score in descending order
         ranked_stocks = momentum_df.sort_values('total_score', ascending=False)
