@@ -20,13 +20,29 @@ sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 from stock_lists import get_all_stocks
 
 # Configure logging
+import os
+
+# Create logs directory if it doesn't exist
+try:
+    os.makedirs('logs', exist_ok=True)
+    log_file = 'logs/database_preparation.log'
+except (OSError, PermissionError):
+    # If we can't create logs directory, just use console logging
+    log_file = None
+
+# Configure logging
+handlers = [logging.StreamHandler()]
+if log_file:
+    try:
+        handlers.append(logging.FileHandler(log_file, mode='a'))
+    except (OSError, PermissionError):
+        # If we can't create log file, just use console logging
+        pass
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('logs/database_preparation.log', mode='a')
-    ]
+    handlers=handlers
 )
 logger = logging.getLogger(__name__)
 
