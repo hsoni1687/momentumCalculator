@@ -187,7 +187,7 @@ class IndianStockDataFetcher:
     
     def get_top_stocks_by_market_cap(self, n=None, industry=None, sector=None):
         """Get top N stocks by market capitalization with optional industry/sector filtering"""
-        from config import STOCK_SELECTION_SETTINGS
+        from config.config import STOCK_SELECTION_SETTINGS
         
         if n is None:
             n = STOCK_SELECTION_SETTINGS['default_stocks_to_analyze']
