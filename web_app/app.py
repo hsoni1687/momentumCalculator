@@ -46,7 +46,7 @@ class MomentumWebApp:
     def load_stock_data(self, use_cache=True, n_stocks=None, industry=None, sector=None):
         """Load and cache stock data with optional industry/sector filtering"""
         if n_stocks is None:
-            from config import STOCK_SELECTION_SETTINGS
+            from config.config import STOCK_SELECTION_SETTINGS
             n_stocks = STOCK_SELECTION_SETTINGS['default_stocks_to_analyze']
         
         # Create cache key that includes filters
@@ -327,7 +327,7 @@ class MomentumWebApp:
         st.sidebar.header("⚙️ Settings")
         
         # Stock selection settings
-        from config import STOCK_SELECTION_SETTINGS
+        from config.config import STOCK_SELECTION_SETTINGS
         max_stocks = STOCK_SELECTION_SETTINGS['max_stocks_to_analyze']
         default_stocks = STOCK_SELECTION_SETTINGS['default_stocks_to_analyze']
         
