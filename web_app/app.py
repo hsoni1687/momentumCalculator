@@ -23,6 +23,7 @@ from data_fetcher import IndianStockDataFetcher
 from momentum_calculator import MomentumCalculator
 from database import StockDatabase
 from stock_lists import get_all_stocks
+from startup_upserts import run_startup_upserts, get_database_summary
 
 # Configure logging
 logging.basicConfig(
@@ -461,8 +462,31 @@ class MomentumWebApp:
 
 def main():
     """Main function"""
-    # Initialize database if empty (for Streamlit Cloud deployment)
-    initialize_database_if_empty()
+    # Run startup upserts to ensure data consistency
+    st.info("🔄 Initializing database and running startup upserts...")
+    
+    try:
+        # Run startup upserts
+        with st.spinner("Running startup upserts..."):
+            upsert_results = run_startup_upserts()
+        
+        if upsert_results['overall_success']:
+            st.success("✅ Database initialization completed successfully")
+            
+            # Show database summary
+            with st.expander("📊 Database Summary", expanded=False):
+                summary = get_database_summary()
+                st.text(summary)
+        else:
+            st.error("❌ Database initialization failed")
+            if upsert_results.get('errors'):
+                for error in upsert_results['errors']:
+                    st.error(f"Error: {error}")
+    
+    except Exception as e:
+        st.error(f"❌ Error during startup: {e}")
+        # Fallback to old initialization method
+        initialize_database_if_empty()
     
     app = MomentumWebApp()
     app.run()
