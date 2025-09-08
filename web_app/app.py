@@ -7,9 +7,14 @@ A Streamlit-based web application for analyzing momentum in Indian stocks
 import sys
 import os
 
-# Add src directory to Python path
+# Add src and config directories to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'config'))
+
+# Load configuration system
+from config.loader import setup_local_config, get_config
+setup_local_config()
+config_manager = get_config()
 
 import streamlit as st
 import pandas as pd
@@ -23,7 +28,7 @@ from data_fetcher import IndianStockDataFetcher
 from momentum_calculator import MomentumCalculator
 from database import StockDatabase
 from stock_lists import get_all_stocks
-from database_simple import SimpleDatabase
+from database_smart import SmartDatabase
 
 # Configure logging
 logging.basicConfig(
@@ -44,15 +49,16 @@ st.set_page_config(
 
 class MomentumWebApp:
     def __init__(self):
-        self.db = SimpleDatabase()
+        self.config_manager = config_manager
+        self.app_config = self.config_manager.get_app_config()
+        self.db = SmartDatabase()
         self.momentum_calculator = MomentumCalculator()
         self.cache = {}
     
     def load_stock_data(self, use_cache=True, n_stocks=None, industry=None, sector=None):
         """Load and cache stock data with optional industry/sector filtering"""
         if n_stocks is None:
-            from config.config import STOCK_SELECTION_SETTINGS
-            n_stocks = STOCK_SELECTION_SETTINGS['default_stocks_to_analyze']
+            n_stocks = self.app_config.get('max_stocks', 100)
         
         # Create cache key that includes filters
         filter_suffix = ""
@@ -77,7 +83,7 @@ class MomentumWebApp:
         with st.spinner(loading_msg):
             try:
                 # Get stock metadata with filters
-                metadata_query = "SELECT * FROM stockMetadata WHERE 1=1"
+                metadata_query = "SELECT * FROM stockmetadata WHERE 1=1"
                 params = []
                 
                 if industry:
@@ -118,7 +124,7 @@ class MomentumWebApp:
     def get_available_industries(self):
         """Get available industries from database"""
         try:
-            query = "SELECT DISTINCT industry FROM stockMetadata WHERE industry IS NOT NULL ORDER BY industry"
+            query = "SELECT DISTINCT industry FROM stockmetadata WHERE industry IS NOT NULL ORDER BY industry"
             result = self.db.execute_query(query)
             return result['industry'].tolist() if not result.empty else []
         except Exception as e:
@@ -128,7 +134,7 @@ class MomentumWebApp:
     def get_available_sectors(self):
         """Get available sectors from database"""
         try:
-            query = "SELECT DISTINCT sector FROM stockMetadata WHERE sector IS NOT NULL ORDER BY sector"
+            query = "SELECT DISTINCT sector FROM stockmetadata WHERE sector IS NOT NULL ORDER BY sector"
             result = self.db.execute_query(query)
             return result['sector'].tolist() if not result.empty else []
         except Exception as e:
@@ -182,7 +188,7 @@ class MomentumWebApp:
                         if not cached_score.empty:
                             score_data = cached_score.iloc[0]
                             momentum_results.append({
-                                'symbol': symbol,
+                                'stock': symbol,
                                 'company_name': stock['company_name'],
                                 'market_cap': stock['market_cap'],
                                 'industry': stock.get('industry', 'N/A'),
@@ -194,14 +200,12 @@ class MomentumWebApp:
                                 'raw_momentum_6m': score_data['raw_momentum_6m'],
                                 'raw_momentum_3m': score_data['raw_momentum_3m'],
                                 'raw_momentum_1m': score_data['raw_momentum_1m'],
-                                'volatility_adjusted_6m': score_data['volatility_adjusted_6m'],
-                                'volatility_adjusted_3m': score_data['volatility_adjusted_3m'],
-                                'volatility_adjusted_1m': score_data['volatility_adjusted_1m'],
-                                'relative_strength_6m': score_data['relative_strength_6m'],
-                                'relative_strength_3m': score_data['relative_strength_3m'],
-                                'relative_strength_1m': score_data['relative_strength_1m'],
-                                'trend_score': score_data['trend_score'],
-                                'volume_score': score_data['volume_score']
+                                'momentum_12_2': score_data.get('momentum_12_2', 0),
+                                'fip_quality': score_data.get('fip_quality', 0),
+                                'volatility_adjusted': score_data.get('volatility_adjusted', 0),
+                                'smooth_momentum': score_data.get('smooth_momentum', 0),
+                                'consistency_score': score_data.get('consistency_score', 0),
+                                'trend_strength': score_data.get('trend_strength', 0)
                             })
                         else:
                             # Calculate fresh score for missing stocks
@@ -214,7 +218,7 @@ class MomentumWebApp:
                                     self.db.store_momentum_scores(symbol, momentum_score)
                                     
                                     momentum_results.append({
-                                        'symbol': symbol,
+                                        'stock': symbol,
                                         'company_name': stock['company_name'],
                                         'market_cap': stock['market_cap'],
                                         'industry': stock.get('industry', 'N/A'),
@@ -254,14 +258,16 @@ class MomentumWebApp:
         # Get top N stocks
         top_stocks = momentum_df.head(top_n)
         
-        # Prepare display columns
+        # Prepare display columns - use 'symbol' if 'stock' is not available
+        symbol_col = 'stock' if 'stock' in top_stocks.columns else 'symbol'
         display_columns = [
-            'symbol', 'company_name', 'market_cap', 'total_score',
-            'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
-            'volatility_adjusted_6m', 'volatility_adjusted_3m', 'volatility_adjusted_1m',
-            'relative_strength_6m', 'relative_strength_3m', 'relative_strength_1m',
-            'trend_score', 'volume_score'
+            symbol_col, 'company_name', 'market_cap', 'total_score',
+            'momentum_12_2', 'fip_quality', 'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
+            'volatility_adjusted', 'smooth_momentum', 'consistency_score', 'trend_strength'
         ]
+        
+        # Filter to only include columns that actually exist
+        display_columns = [col for col in display_columns if col in top_stocks.columns]
         
         # Add optional columns if they exist
         available_columns = []
@@ -280,10 +286,8 @@ class MomentumWebApp:
         
         # Format percentage columns
         percentage_columns = [
-            'total_score', 'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
-            'volatility_adjusted_6m', 'volatility_adjusted_3m', 'volatility_adjusted_1m',
-            'relative_strength_6m', 'relative_strength_3m', 'relative_strength_1m',
-            'trend_score', 'volume_score'
+            'total_score', 'momentum_12_2', 'fip_quality', 'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
+            'volatility_adjusted', 'smooth_momentum', 'consistency_score', 'trend_strength'
         ]
         
         for col in percentage_columns:
@@ -300,21 +304,20 @@ class MomentumWebApp:
         
         # Rename columns for better display
         column_mapping = {
+            'stock': 'Symbol',
             'symbol': 'Symbol',
             'company_name': 'Company Name',
             'market_cap': 'Market Cap',
             'total_score': 'Total Score',
+            'momentum_12_2': '12-2 Momentum',
+            'fip_quality': 'FIP Quality',
             'raw_momentum_6m': '6M Momentum',
             'raw_momentum_3m': '3M Momentum',
             'raw_momentum_1m': '1M Momentum',
-            'volatility_adjusted_6m': 'Vol-Adj 6M',
-            'volatility_adjusted_3m': 'Vol-Adj 3M',
-            'volatility_adjusted_1m': 'Vol-Adj 1M',
-            'relative_strength_6m': 'Rel Strength 6M',
-            'relative_strength_3m': 'Rel Strength 3M',
-            'relative_strength_1m': 'Rel Strength 1M',
-            'trend_score': 'Trend Score',
-            'volume_score': 'Volume Score',
+            'volatility_adjusted': 'Vol-Adj Momentum',
+            'smooth_momentum': 'Smooth Momentum',
+            'consistency_score': 'Consistency',
+            'trend_strength': 'Trend Strength',
             'industry': 'Industry',
             'sector': 'Sector',
             'dividend_yield': 'Dividend Yield',
@@ -340,11 +343,13 @@ class MomentumWebApp:
         
         with col1:
             # Total Score vs Market Cap
+            # Use the correct column name for the symbol
+            symbol_col = 'stock' if 'stock' in top_stocks.columns else 'symbol'
             fig1 = px.scatter(
                 top_stocks, 
                 x='market_cap', 
                 y='total_score',
-                hover_data=['symbol', 'company_name'],
+                hover_data=[symbol_col, 'company_name'],
                 title="Total Momentum Score vs Market Cap",
                 labels={'market_cap': 'Market Cap (₹Cr)', 'total_score': 'Total Score (%)'}
             )
@@ -353,7 +358,7 @@ class MomentumWebApp:
         with col2:
             # Momentum breakdown
             momentum_cols = ['raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m', 'raw_momentum_1m']
-            momentum_data = top_stocks[['symbol'] + momentum_cols].set_index('symbol')
+            momentum_data = top_stocks[[symbol_col] + momentum_cols].set_index(symbol_col)
             
             fig2 = px.bar(
                 momentum_data.T,
@@ -468,12 +473,12 @@ def main():
     
     try:
         # Create database instance
-        db = SimpleDatabase()
+        db = SmartDatabase()
         
         # Check if database is accessible
         stats = db.get_database_stats()
         
-        if not stats or not stats.get('record_counts'):
+        if not stats or stats.get('unique_stocks_with_price', 0) == 0:
             st.error("❌ Database connection failed or no data found")
             return
         
@@ -482,9 +487,9 @@ def main():
         # Show database summary
         with st.expander("📊 Database Summary", expanded=False):
             if stats:
-                st.write(f"**Tables:** {', '.join(stats.get('tables', []))}")
-                st.write(f"**Record Counts:** {stats.get('record_counts', {})}")
-                st.write(f"**Stocks with Price Data:** {stats.get('unique_stocks_with_price', 0)}")
+                st.write(f"**Total Stocks:** {stats.get('unique_stocks_with_price', 0)}")
+                st.write(f"**Price Records:** {stats.get('record_counts', {}).get('tickerprice', 0)}")
+                st.write(f"**Momentum Scores:** {stats.get('momentum_scores_count', 0)}")
                 st.write(f"**Date Range:** {stats.get('date_range', 'N/A')}")
             else:
                 st.error("Could not retrieve database summary")

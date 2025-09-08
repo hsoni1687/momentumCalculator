@@ -4,69 +4,63 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
+    container_name: momentum_postgres
     environment:
       POSTGRES_DB: momentum_calc
       POSTGRES_USER: momentum_user
-      POSTGRES_PASSWORD: momentum_pass
+      POSTGRES_PASSWORD: momentum_password
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./data/stock_metadata.csv:/docker-entrypoint-initdb.d/stock_metadata.csv
-      - ./data/ticker_price.csv:/docker-entrypoint-initdb.d/ticker_price.csv
-      - ./data/momentum_scores.csv:/docker-entrypoint-initdb.d/momentum_scores.csv
+      - ./data:/docker-entrypoint-initdb.d/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U momentum_user -d momentum_calc"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Momentum Calculator App
-  momentum-calculator:
+  # Streamlit Web Application
+  webapp:
     build: .
+    container_name: momentum_webapp
     ports:
       - "8501:8501"
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
     environment:
-      - PYTHONPATH=/app
-      - DATABASE_URL=postgresql://momentum_user:momentum_pass@postgres:5432/momentum_calc
-      - DB_TYPE=postgresql
+      # Database connection for local development
+      DATABASE_URL: postgresql://momentum_user:momentum_password@postgres:5432/momentum_calc
+      # Supabase credentials (for production compatibility)
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+    volumes:
+      - .:/app
+      - /app/__pycache__
     depends_on:
       postgres:
         condition: service_healthy
-    command: >
-      sh -c "
-        echo '🚀 Starting Momentum Calculator...' &&
-        echo '⏳ Waiting for database to be ready...' &&
-        sleep 15 &&
-        echo '✅ Database should be ready with CSV data loaded' &&
-        streamlit run app.py --server.port=8501 --server.address=0.0.0.0
-      "
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    restart: unless-stopped
 
-  # Database inspection service
+  # Database Inspector (optional - for debugging)
   db-inspector:
     image: postgres:15-alpine
+    container_name: momentum_db_inspector
     environment:
-      PGPASSWORD: momentum_pass
+      PGPASSWORD: momentum_password
     depends_on:
       - postgres
     command: >
       sh -c "
-        echo '📊 Database tables:' &&
-        psql -h postgres -U momentum_user -d momentum_calc -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';" &&
-        echo '📈 Record counts:' &&
-        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(*) as stock_metadata FROM stockMetadata;' &&
-        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(*) as ticker_price FROM tickerPrice;' &&
-        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(DISTINCT stock) as unique_stocks FROM tickerPrice;'
+        echo 'Waiting for database...' &&
+        sleep 10 &&
+        echo 'Database tables:' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c '\dt' &&
+        echo 'Stock metadata count:' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(*) as stock_metadata FROM stockmetadata;' &&
+        echo 'Price data count:' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(*) as price_data FROM tickerprice;' &&
+        echo 'Momentum scores count:' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(*) as momentum_scores FROM momentumscores;'
       "
 
 volumes:

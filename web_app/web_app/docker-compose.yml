@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: momentum_calc
+      POSTGRES_USER: momentum_user
+      POSTGRES_PASSWORD: momentum_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./data/stock_metadata.csv:/docker-entrypoint-initdb.d/stock_metadata.csv
+      - ./data/ticker_price.csv:/docker-entrypoint-initdb.d/ticker_price.csv
+      - ./data/momentum_scores.csv:/docker-entrypoint-initdb.d/momentum_scores.csv
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U momentum_user -d momentum_calc"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Momentum Calculator App
+  momentum-calculator:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - DATABASE_URL=postgresql://momentum_user:momentum_pass@postgres:5432/momentum_calc
+      - DB_TYPE=postgresql
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '🚀 Starting Momentum Calculator...' &&
+        echo '⏳ Waiting for database to be ready...' &&
+        sleep 15 &&
+        echo '✅ Database should be ready with CSV data loaded' &&
+        streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Database inspection service
+  db-inspector:
+    image: postgres:15-alpine
+    environment:
+      PGPASSWORD: momentum_pass
+    depends_on:
+      - postgres
+    command: >
+      sh -c "
+        echo '📊 Database tables:' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';" &&
+        echo '📈 Record counts:' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(*) as stock_metadata FROM stockMetadata;' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(*) as ticker_price FROM tickerPrice;' &&
+        psql -h postgres -U momentum_user -d momentum_calc -c 'SELECT COUNT(DISTINCT stock) as unique_stocks FROM tickerPrice;'
+      "
+
+volumes:
+  postgres_data:

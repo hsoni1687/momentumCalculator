@@ -297,7 +297,7 @@ class MomentumCalculator:
         results = []
         
         for _, stock in stocks_data.iterrows():
-            symbol = stock['symbol']
+            symbol = stock['stock']
             company_name = stock['company_name']
             market_cap = stock['market_cap']
             sector = stock['sector']
@@ -312,7 +312,7 @@ class MomentumCalculator:
                     momentum_scores = self.calculate_quality_momentum_score(hist_data)
                     
                     result = {
-                        'symbol': symbol,
+                        'stock': symbol,
                         'company_name': company_name,
                         'market_cap': market_cap,
                         'sector': sector,
@@ -328,7 +328,7 @@ class MomentumCalculator:
                     logger.error(f"Error calculating momentum for {symbol}: {e}")
                     # Add a result with zero scores for this stock
                     result = {
-                        'symbol': symbol,
+                        'stock': symbol,
                         'company_name': company_name,
                         'market_cap': market_cap,
                         'sector': sector,

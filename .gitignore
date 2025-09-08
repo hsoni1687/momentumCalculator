@@ -61,6 +61,14 @@ logs/
 .env.local
 .env.production
 
+# Configuration files (local development)
+web_app/config/local.env
+web_app/config/*.env
+!web_app/config/*.template
+!web_app/config/*.example
+# Allow Python config files
+!web_app/config/*.py
+
 # Temporary files
 *.tmp
 *.temp
