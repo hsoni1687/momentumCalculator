@@ -17,7 +17,15 @@ class SmartDatabase:
     
     def __init__(self):
         """Initialize the appropriate database adapter"""
-        # Load configuration
+        # Force Supabase on Streamlit Cloud
+        if os.getenv('STREAMLIT_SHARING_MODE') == 'true':
+            logger.info("🌐 Streamlit Cloud detected - forcing Supabase adapter")
+            from database_supabase import SupabaseDatabase
+            self.db = SupabaseDatabase()
+            self.db_type = "supabase"
+            return
+        
+        # Load configuration for local development
         self.config_manager = ConfigManager()
         self.config = self.config_manager.get_database_config()
         

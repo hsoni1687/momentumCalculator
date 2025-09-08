@@ -21,6 +21,10 @@ from config.loader import setup_local_config, get_config
 setup_local_config()
 config_manager = get_config()
 
+# Debug: Print configuration details
+print(f"🔍 Environment: {config_manager.config.environment}")
+print(f"🔍 Database config: {config_manager.get_database_config()}")
+
 import streamlit as st
 import pandas as pd
 import logging
