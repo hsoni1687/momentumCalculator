@@ -65,7 +65,7 @@ class SupabaseDatabase:
     def get_price_data(self, stock_symbol: str, start_date: str = None, end_date: str = None) -> pd.DataFrame:
         """Get price data for a specific stock"""
         try:
-            query = self.client.table('tickerPrice').select('*').eq('stock', stock_symbol)
+            query = self.client.table('tickerprice').select('*').eq('stock', stock_symbol)
             
             if start_date:
                 query = query.gte('date', start_date)
@@ -82,7 +82,7 @@ class SupabaseDatabase:
     def get_all_price_data(self, start_date: str = None, end_date: str = None) -> pd.DataFrame:
         """Get all price data"""
         try:
-            query = self.client.table('tickerPrice').select('*')
+            query = self.client.table('tickerprice').select('*')
             
             if start_date:
                 query = query.gte('date', start_date)
@@ -106,19 +106,19 @@ class SupabaseDatabase:
             stats['unique_stocks_with_price'] = metadata_result.count
             
             # Get price data count
-            price_result = self.client.table('tickerPrice').select('id', count='exact').execute()
+            price_result = self.client.table('tickerprice').select('id', count='exact').execute()
             stats['record_counts'] = {'tickerprice': price_result.count}
             
             # Get momentum scores count
-            momentum_result = self.client.table('momentumScores').select('stock', count='exact').execute()
+            momentum_result = self.client.table('momentumscores').select('stock', count='exact').execute()
             stats['momentum_scores_count'] = momentum_result.count
             
             # Get date range
-            date_result = self.client.table('tickerPrice').select('date').order('date', desc=False).limit(1).execute()
+            date_result = self.client.table('tickerprice').select('date').order('date', desc=False).limit(1).execute()
             if date_result.data:
                 min_date = date_result.data[0]['date']
             
-            date_result = self.client.table('tickerPrice').select('date').order('date', desc=True).limit(1).execute()
+            date_result = self.client.table('tickerprice').select('date').order('date', desc=True).limit(1).execute()
             if date_result.data:
                 max_date = date_result.data[0]['date']
                 stats['date_range'] = f"{min_date} to {max_date}"
@@ -136,11 +136,11 @@ class SupabaseDatabase:
         try:
             # Get today's scores first
             today = datetime.now().date()
-            result = self.client.table('momentumScores').select('*').gte('calculated_at', str(today)).execute()
+            result = self.client.table('momentumscores').select('*').gte('calculated_at', str(today)).execute()
             
             if not result.data:
                 # If no scores for today, get the most recent scores
-                result = self.client.table('momentumScores').select('*').order('calculated_at', desc=True).limit(1000).execute()
+                result = self.client.table('momentumscores').select('*').order('calculated_at', desc=True).limit(1000).execute()
             
             return pd.DataFrame(result.data)
         except Exception as e:
@@ -169,7 +169,7 @@ class SupabaseDatabase:
             }
             
             # Upsert the data
-            result = self.client.table('momentumScores').upsert(score_data).execute()
+            result = self.client.table('momentumscores').upsert(score_data).execute()
             return True
             
         except Exception as e:
