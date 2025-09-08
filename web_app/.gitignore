@@ -65,3 +65,29 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+
+# Development and test files
+test_*.py
+*_test.py
+*_explorer.py
+*_analysis.ipynb
+setup_*.py
+create_*.py
+load_*.py
+generate_*.py
+
+# Documentation drafts
+*_DRAFT.md
+*_TEMP.md
+ARCHITECTURE.md
+DEPLOYMENT_GUIDE.md
+
+# Cache and temporary directories
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local development
+.env.local
+.env.development
