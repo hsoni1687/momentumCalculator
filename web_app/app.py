@@ -80,23 +80,14 @@ class MomentumWebApp:
         
         with st.spinner(loading_msg):
             try:
-                # Get stock metadata with filters
-                metadata_query = "SELECT * FROM stockmetadata WHERE 1=1"
-                params = []
+                # Get stock metadata with filters using Supabase methods
+                top_stocks = self.db.get_stock_metadata(industry_filter=industry, sector_filter=sector)
                 
-                if industry:
-                    metadata_query += " AND industry = %s"
-                    params.append(industry)
-                
-                if sector:
-                    metadata_query += " AND sector = %s"
-                    params.append(sector)
-                
-                metadata_query += " ORDER BY market_cap DESC"
-                if n_stocks:
-                    metadata_query += f" LIMIT {n_stocks}"
-                
-                top_stocks = self.db.execute_query(metadata_query, tuple(params))
+                # Sort by market cap and limit if needed
+                if not top_stocks.empty and 'market_cap' in top_stocks.columns:
+                    top_stocks = top_stocks.sort_values('market_cap', ascending=False)
+                    if n_stocks:
+                        top_stocks = top_stocks.head(n_stocks)
                 
                 if top_stocks.empty:
                     filter_info = []
@@ -122,9 +113,7 @@ class MomentumWebApp:
     def get_available_industries(self):
         """Get available industries from database"""
         try:
-            query = "SELECT DISTINCT industry FROM stockmetadata WHERE industry IS NOT NULL ORDER BY industry"
-            result = self.db.execute_query(query)
-            return result['industry'].tolist() if not result.empty else []
+            return self.db.get_available_industries()
         except Exception as e:
             st.error(f"Error getting industries: {e}")
             return []
@@ -132,9 +121,7 @@ class MomentumWebApp:
     def get_available_sectors(self):
         """Get available sectors from database"""
         try:
-            query = "SELECT DISTINCT sector FROM stockmetadata WHERE sector IS NOT NULL ORDER BY sector"
-            result = self.db.execute_query(query)
-            return result['sector'].tolist() if not result.empty else []
+            return self.db.get_available_sectors()
         except Exception as e:
             st.error(f"Error getting sectors: {e}")
             return []
