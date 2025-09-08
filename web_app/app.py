@@ -6,6 +6,10 @@ A Streamlit-based web application for analyzing momentum in Indian stocks
 
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file (for local development)
+load_dotenv()
 
 # Add src directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
@@ -23,7 +27,7 @@ from data_fetcher import IndianStockDataFetcher
 from momentum_calculator import MomentumCalculator
 from database import StockDatabase
 from stock_lists import get_all_stocks
-from database_simple import SimpleDatabase
+from database_supabase import SupabaseDatabase
 
 # Configure logging
 logging.basicConfig(
@@ -44,7 +48,7 @@ st.set_page_config(
 
 class MomentumWebApp:
     def __init__(self):
-        self.db = SimpleDatabase()
+        self.db = SupabaseDatabase()
         self.momentum_calculator = MomentumCalculator()
         self.cache = {}
     
@@ -468,12 +472,12 @@ def main():
     
     try:
         # Create database instance
-        db = SimpleDatabase()
+        db = SupabaseDatabase()
         
         # Check if database is accessible
         stats = db.get_database_stats()
         
-        if not stats or not stats.get('record_counts'):
+        if not stats or stats.get('unique_stocks_with_price', 0) == 0:
             st.error("❌ Database connection failed or no data found")
             return
         
