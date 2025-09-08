@@ -6,6 +6,10 @@ A Streamlit-based web application for analyzing momentum in Indian stocks
 
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file (for local development)
+load_dotenv()
 
 # Add src and config directories to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
@@ -49,9 +53,13 @@ st.set_page_config(
 
 class MomentumWebApp:
     def __init__(self):
+<<<<<<< HEAD
         self.config_manager = config_manager
         self.app_config = self.config_manager.get_app_config()
         self.db = SmartDatabase()
+=======
+        self.db = SupabaseDatabase()
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
         self.momentum_calculator = MomentumCalculator()
         self.cache = {}
     
@@ -82,23 +90,20 @@ class MomentumWebApp:
         
         with st.spinner(loading_msg):
             try:
+<<<<<<< HEAD
                 # Get stock metadata with filters
                 metadata_query = "SELECT * FROM stockmetadata WHERE 1=1"
                 params = []
+=======
+                # Get stock metadata with filters using Supabase methods
+                top_stocks = self.db.get_stock_metadata(industry_filter=industry, sector_filter=sector)
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
                 
-                if industry:
-                    metadata_query += " AND industry = %s"
-                    params.append(industry)
-                
-                if sector:
-                    metadata_query += " AND sector = %s"
-                    params.append(sector)
-                
-                metadata_query += " ORDER BY market_cap DESC"
-                if n_stocks:
-                    metadata_query += f" LIMIT {n_stocks}"
-                
-                top_stocks = self.db.execute_query(metadata_query, tuple(params))
+                # Sort by market cap and limit if needed
+                if not top_stocks.empty and 'market_cap' in top_stocks.columns:
+                    top_stocks = top_stocks.sort_values('market_cap', ascending=False)
+                    if n_stocks:
+                        top_stocks = top_stocks.head(n_stocks)
                 
                 if top_stocks.empty:
                     filter_info = []
@@ -124,9 +129,13 @@ class MomentumWebApp:
     def get_available_industries(self):
         """Get available industries from database"""
         try:
+<<<<<<< HEAD
             query = "SELECT DISTINCT industry FROM stockmetadata WHERE industry IS NOT NULL ORDER BY industry"
             result = self.db.execute_query(query)
             return result['industry'].tolist() if not result.empty else []
+=======
+            return self.db.get_available_industries()
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
         except Exception as e:
             st.error(f"Error getting industries: {e}")
             return []
@@ -134,9 +143,13 @@ class MomentumWebApp:
     def get_available_sectors(self):
         """Get available sectors from database"""
         try:
+<<<<<<< HEAD
             query = "SELECT DISTINCT sector FROM stockmetadata WHERE sector IS NOT NULL ORDER BY sector"
             result = self.db.execute_query(query)
             return result['sector'].tolist() if not result.empty else []
+=======
+            return self.db.get_available_sectors()
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
         except Exception as e:
             st.error(f"Error getting sectors: {e}")
             return []
@@ -160,6 +173,10 @@ class MomentumWebApp:
                         price_data.set_index('Date', inplace=True)
                         price_data = price_data[['open', 'high', 'low', 'close', 'volume']]
                         price_data.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+                        
+                        # Calculate Returns column (required by momentum calculator)
+                        price_data['Returns'] = price_data['Close'].pct_change()
+                        
                         historical_data[symbol] = price_data
                 
                 # Cache the data
@@ -258,24 +275,37 @@ class MomentumWebApp:
         # Get top N stocks
         top_stocks = momentum_df.head(top_n)
         
+<<<<<<< HEAD
         # Prepare display columns - use 'symbol' if 'stock' is not available
         symbol_col = 'stock' if 'stock' in top_stocks.columns else 'symbol'
         display_columns = [
             symbol_col, 'company_name', 'market_cap', 'total_score',
             'momentum_12_2', 'fip_quality', 'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
+=======
+        # Prepare display columns (matching what momentum calculator returns)
+        base_columns = ['stock', 'company_name', 'market_cap', 'total_score']
+        momentum_columns = [
+            'momentum_12_2', 'fip_quality',
+            'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
             'volatility_adjusted', 'smooth_momentum', 'consistency_score', 'trend_strength'
         ]
+        optional_columns = ['industry', 'dividend_yield', 'roce', 'roe', 'sector']
         
+<<<<<<< HEAD
         # Filter to only include columns that actually exist
         display_columns = [col for col in display_columns if col in top_stocks.columns]
         
         # Add optional columns if they exist
         available_columns = []
         for col in ['industry', 'dividend_yield', 'roce', 'roe', 'sector']:
+=======
+        # Only include columns that actually exist
+        display_columns = []
+        for col in base_columns + momentum_columns + optional_columns:
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
             if col in top_stocks.columns:
-                available_columns.append(col)
-        
-        display_columns.extend(available_columns)
+                display_columns.append(col)
         
         # Create display dataframe
         display_df = top_stocks[display_columns].copy()
@@ -284,9 +314,14 @@ class MomentumWebApp:
         if 'market_cap' in display_df.columns:
             display_df['market_cap'] = display_df['market_cap'].apply(lambda x: f"₹{x:,.0f}Cr")
         
-        # Format percentage columns
+        # Format percentage columns (only if they exist)
         percentage_columns = [
+<<<<<<< HEAD
             'total_score', 'momentum_12_2', 'fip_quality', 'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
+=======
+            'total_score', 'momentum_12_2', 'fip_quality',
+            'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
             'volatility_adjusted', 'smooth_momentum', 'consistency_score', 'trend_strength'
         ]
         
@@ -305,7 +340,10 @@ class MomentumWebApp:
         # Rename columns for better display
         column_mapping = {
             'stock': 'Symbol',
+<<<<<<< HEAD
             'symbol': 'Symbol',
+=======
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
             'company_name': 'Company Name',
             'market_cap': 'Market Cap',
             'total_score': 'Total Score',
@@ -349,7 +387,11 @@ class MomentumWebApp:
                 top_stocks, 
                 x='market_cap', 
                 y='total_score',
+<<<<<<< HEAD
                 hover_data=[symbol_col, 'company_name'],
+=======
+                hover_data=['stock', 'company_name'],
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
                 title="Total Momentum Score vs Market Cap",
                 labels={'market_cap': 'Market Cap (₹Cr)', 'total_score': 'Total Score (%)'}
             )
@@ -358,7 +400,11 @@ class MomentumWebApp:
         with col2:
             # Momentum breakdown
             momentum_cols = ['raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m', 'raw_momentum_1m']
+<<<<<<< HEAD
             momentum_data = top_stocks[[symbol_col] + momentum_cols].set_index(symbol_col)
+=======
+            momentum_data = top_stocks[['stock'] + momentum_cols].set_index('stock')
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
             
             fig2 = px.bar(
                 momentum_data.T,
@@ -473,7 +519,11 @@ def main():
     
     try:
         # Create database instance
+<<<<<<< HEAD
         db = SmartDatabase()
+=======
+        db = SupabaseDatabase()
+>>>>>>> 2dacb80e81e1c89169900b09d21ec83393cae2f8
         
         # Check if database is accessible
         stats = db.get_database_stats()
