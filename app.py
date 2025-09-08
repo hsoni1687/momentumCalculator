@@ -8,7 +8,7 @@ import sys
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file (for local development)
 load_dotenv()
 
 # Add src directory to Python path
