@@ -46,24 +46,47 @@ class ConfigManager:
         if explicit_env:
             return explicit_env.lower()
         
-        # Check for Streamlit Cloud environment
+        # Check for Streamlit Cloud environment (highest priority)
         if os.getenv('STREAMLIT_SHARING_MODE') == 'true':
+            logger.info("Detected Streamlit Cloud environment")
             return 'cloud'
         
         # Check for Supabase credentials (indicates cloud deployment)
         supabase_url = os.getenv('SUPABASE_URL')
         if supabase_url and supabase_url != 'your_supabase_url_here' and 'supabase.co' in supabase_url:
+            logger.info("Detected Supabase cloud environment")
             return 'cloud'
         
-        # Check for local development indicators
-        if os.getenv('DATABASE_URL') or os.getenv('POSTGRES_HOST'):
+        # Check for Streamlit secrets (cloud deployment)
+        try:
+            import streamlit as st
+            if hasattr(st, 'secrets') and st.secrets.get('SUPABASE_URL'):
+                logger.info("Detected Streamlit secrets cloud environment")
+                return 'cloud'
+        except:
+            pass
+        
+        # Check for local development indicators (only if not in cloud)
+        if os.getenv('DATABASE_URL') and 'localhost' in os.getenv('DATABASE_URL', ''):
+            logger.info("Detected local PostgreSQL environment")
+            return 'local'
+        
+        if os.getenv('POSTGRES_HOST') and os.getenv('POSTGRES_HOST') in ['localhost', '127.0.0.1']:
+            logger.info("Detected local PostgreSQL environment")
             return 'local'
         
         # Check if running in Docker (local development)
         if os.path.exists('/.dockerenv'):
+            logger.info("Detected Docker local environment")
             return 'local'
         
+        # Default to cloud if we have any Supabase-like indicators
+        if supabase_url and 'supabase' in supabase_url.lower():
+            logger.info("Defaulting to cloud environment based on Supabase URL")
+            return 'cloud'
+        
         # Default to local for development
+        logger.info("Defaulting to local environment")
         return 'local'
     
     @property

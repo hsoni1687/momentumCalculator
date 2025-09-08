@@ -21,6 +21,10 @@ class SmartDatabase:
         self.config_manager = ConfigManager()
         self.config = self.config_manager.get_database_config()
         
+        # Debug logging
+        logger.info(f"Environment: {self.config_manager.config.environment}")
+        logger.info(f"Database config: {self.config}")
+        
         # Initialize the appropriate database adapter
         adapter_type = self.config.get('adapter', 'local')
         

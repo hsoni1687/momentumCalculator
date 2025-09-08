@@ -11,6 +11,11 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'config'))
 
+# Force cloud environment if running on Streamlit Cloud
+if os.getenv('STREAMLIT_SHARING_MODE') == 'true':
+    os.environ['MOMENTUM_ENV'] = 'cloud'
+    print("🌐 Forced cloud environment for Streamlit Cloud")
+
 # Load configuration system
 from config.loader import setup_local_config, get_config
 setup_local_config()
