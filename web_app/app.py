@@ -173,7 +173,7 @@ class MomentumWebApp:
                         if not cached_score.empty:
                             score_data = cached_score.iloc[0]
                             momentum_results.append({
-                                'symbol': symbol,
+                                'stock': symbol,
                                 'company_name': stock['company_name'],
                                 'market_cap': stock['market_cap'],
                                 'industry': stock.get('industry', 'N/A'),
@@ -205,7 +205,7 @@ class MomentumWebApp:
                                     self.db.store_momentum_scores(symbol, momentum_score)
                                     
                                     momentum_results.append({
-                                        'symbol': symbol,
+                                        'stock': symbol,
                                         'company_name': stock['company_name'],
                                         'market_cap': stock['market_cap'],
                                         'industry': stock.get('industry', 'N/A'),
@@ -247,7 +247,7 @@ class MomentumWebApp:
         
         # Prepare display columns
         display_columns = [
-            'symbol', 'company_name', 'market_cap', 'total_score',
+            'stock', 'company_name', 'market_cap', 'total_score',
             'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
             'volatility_adjusted_6m', 'volatility_adjusted_3m', 'volatility_adjusted_1m',
             'relative_strength_6m', 'relative_strength_3m', 'relative_strength_1m',
@@ -291,7 +291,7 @@ class MomentumWebApp:
         
         # Rename columns for better display
         column_mapping = {
-            'symbol': 'Symbol',
+            'stock': 'Symbol',
             'company_name': 'Company Name',
             'market_cap': 'Market Cap',
             'total_score': 'Total Score',
@@ -335,7 +335,7 @@ class MomentumWebApp:
                 top_stocks, 
                 x='market_cap', 
                 y='total_score',
-                hover_data=['symbol', 'company_name'],
+                hover_data=['stock', 'company_name'],
                 title="Total Momentum Score vs Market Cap",
                 labels={'market_cap': 'Market Cap (₹Cr)', 'total_score': 'Total Score (%)'}
             )
@@ -344,7 +344,7 @@ class MomentumWebApp:
         with col2:
             # Momentum breakdown
             momentum_cols = ['raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m', 'raw_momentum_1m']
-            momentum_data = top_stocks[['symbol'] + momentum_cols].set_index('symbol')
+            momentum_data = top_stocks[['stock'] + momentum_cols].set_index('stock')
             
             fig2 = px.bar(
                 momentum_data.T,
