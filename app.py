@@ -11,11 +11,20 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'config'))
 
-# CRITICAL: Force cloud environment if running on Streamlit Cloud
-if os.getenv('STREAMLIT_SHARING_MODE') == 'true':
+# CRITICAL: Force cloud environment if running on Streamlit Cloud - Multiple detection methods
+is_streamlit_cloud = (
+    os.getenv('STREAMLIT_SHARING_MODE') == 'true' or
+    'streamlit.app' in os.getenv('STREAMLIT_SERVER_PORT', '') or
+    os.getenv('STREAMLIT_SERVER_PORT') == '8501' or
+    'share.streamlit.io' in os.getenv('STREAMLIT_SERVER_ADDRESS', '') or
+    os.path.exists('/app')  # Streamlit Cloud runs in /app directory
+)
+
+if is_streamlit_cloud:
     os.environ['MOMENTUM_ENV'] = 'cloud'
     print("🌐 STREAMLIT CLOUD DETECTED - FORCING CLOUD ENVIRONMENT")
     print("🌐 This should use Supabase, not localhost PostgreSQL")
+    print(f"🌐 Detection method: STREAMLIT_SHARING_MODE={os.getenv('STREAMLIT_SHARING_MODE')}, /app exists={os.path.exists('/app')}")
 
 # Load configuration system
 from config.loader import setup_local_config, get_config
@@ -62,15 +71,31 @@ class MomentumWebApp:
         self.config_manager = config_manager
         self.app_config = self.config_manager.get_app_config()
         
-        # CRITICAL: Force Supabase on Streamlit Cloud
-        if os.getenv('STREAMLIT_SHARING_MODE') == 'true':
-            print("🌐 FORCING SUPABASE DATABASE ON STREAMLIT CLOUD")
+        # CRITICAL: Force Supabase on Streamlit Cloud - Multiple detection methods
+        is_streamlit_cloud = (
+            os.getenv('STREAMLIT_SHARING_MODE') == 'true' or
+            'streamlit.app' in os.getenv('STREAMLIT_SERVER_PORT', '') or
+            os.getenv('STREAMLIT_SERVER_PORT') == '8501' or
+            'share.streamlit.io' in os.getenv('STREAMLIT_SERVER_ADDRESS', '') or
+            os.path.exists('/app')  # Streamlit Cloud runs in /app directory
+        )
+        
+        print(f"🔍 Environment detection:")
+        print(f"  STREAMLIT_SHARING_MODE: {os.getenv('STREAMLIT_SHARING_MODE')}")
+        print(f"  STREAMLIT_SERVER_PORT: {os.getenv('STREAMLIT_SERVER_PORT')}")
+        print(f"  STREAMLIT_SERVER_ADDRESS: {os.getenv('STREAMLIT_SERVER_ADDRESS')}")
+        print(f"  /app directory exists: {os.path.exists('/app')}")
+        print(f"  Is Streamlit Cloud: {is_streamlit_cloud}")
+        
+        if is_streamlit_cloud:
+            print("🌐 STREAMLIT CLOUD DETECTED - FORCING SUPABASE DATABASE")
             from database_supabase import SupabaseDatabase
             self.db = SupabaseDatabase()
             print(f"🌐 Database type: {type(self.db).__name__}")
         else:
+            print("🔧 LOCAL ENVIRONMENT - USING SMART DATABASE")
             self.db = SmartDatabase()
-            print(f"🔧 Local database type: {type(self.db).__name__}")
+            print(f"🔧 Database type: {type(self.db).__name__}")
         
         self.momentum_calculator = MomentumCalculator()
         self.cache = {}
