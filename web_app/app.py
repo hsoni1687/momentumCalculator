@@ -145,6 +145,10 @@ class MomentumWebApp:
                         price_data.set_index('Date', inplace=True)
                         price_data = price_data[['open', 'high', 'low', 'close', 'volume']]
                         price_data.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+                        
+                        # Calculate Returns column (required by momentum calculator)
+                        price_data['Returns'] = price_data['Close'].pct_change()
+                        
                         historical_data[symbol] = price_data
                 
                 # Cache the data
@@ -245,9 +249,6 @@ class MomentumWebApp:
         # Get top N stocks
         top_stocks = momentum_df.head(top_n)
         
-        # Debug: Show what columns are actually available
-        st.write("🔍 Debug - Available columns:", list(top_stocks.columns))
-        
         # Prepare display columns (matching what momentum calculator returns)
         base_columns = ['stock', 'company_name', 'market_cap', 'total_score']
         momentum_columns = [
@@ -262,8 +263,6 @@ class MomentumWebApp:
         for col in base_columns + momentum_columns + optional_columns:
             if col in top_stocks.columns:
                 display_columns.append(col)
-        
-        st.write("🔍 Debug - Display columns:", display_columns)
         
         # Create display dataframe
         display_df = top_stocks[display_columns].copy()
