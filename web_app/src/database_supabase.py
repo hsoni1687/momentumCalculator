@@ -18,11 +18,22 @@ class SupabaseDatabase:
     
     def __init__(self):
         """Initialize Supabase connection"""
+        # Try to get credentials from environment variables first
         self.supabase_url = os.getenv('SUPABASE_URL')
         self.supabase_key = os.getenv('SUPABASE_ANON_KEY')
         
+        # If not found, try Streamlit secrets (for Streamlit Cloud)
         if not self.supabase_url or not self.supabase_key:
-            raise ValueError("Missing Supabase credentials. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.")
+            try:
+                import streamlit as st
+                if hasattr(st, 'secrets') and 'supabase' in st.secrets:
+                    self.supabase_url = st.secrets['supabase']['url']
+                    self.supabase_key = st.secrets['supabase']['anon_key']
+            except:
+                pass
+        
+        if not self.supabase_url or not self.supabase_key:
+            raise ValueError("Missing Supabase credentials. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables or configure Streamlit secrets.")
         
         try:
             self.client: Client = create_client(self.supabase_url, self.supabase_key)

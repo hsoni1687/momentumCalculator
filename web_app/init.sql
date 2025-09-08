@@ -1,82 +1,68 @@
--- PostgreSQL initialization script for Momentum Calculator
--- This script creates the necessary tables for the application
+-- Initialize the momentum calculator database
+-- This script runs when the PostgreSQL container starts
 
 -- Create stockMetadata table
-CREATE TABLE IF NOT EXISTS stockMetadata (
+CREATE TABLE IF NOT EXISTS stockmetadata (
     stock VARCHAR(50) PRIMARY KEY,
     company_name VARCHAR(255),
     market_cap BIGINT,
     sector VARCHAR(100),
     industry VARCHAR(100),
     exchange VARCHAR(10),
-    dividend_yield DECIMAL(5,2),
-    roce DECIMAL(5,2),
-    roe DECIMAL(5,2),
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    dividend_yield NUMERIC(5, 2),
+    roce NUMERIC(5, 2),
+    roe NUMERIC(5, 2),
+    last_updated TIMESTAMP DEFAULT NOW()
 );
 
 -- Create tickerPrice table
-CREATE TABLE IF NOT EXISTS tickerPrice (
+CREATE TABLE IF NOT EXISTS tickerprice (
     id SERIAL PRIMARY KEY,
-    stock VARCHAR(50) NOT NULL,
-    date DATE NOT NULL,
-    open DECIMAL(10,2),
-    high DECIMAL(10,2),
-    low DECIMAL(10,2),
-    close DECIMAL(10,2),
+    stock VARCHAR(50),
+    date DATE,
+    open NUMERIC(10, 2),
+    high NUMERIC(10, 2),
+    low NUMERIC(10, 2),
+    close NUMERIC(10, 2),
     volume BIGINT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(stock, date)
+    last_updated TIMESTAMP DEFAULT NOW(),
+    FOREIGN KEY (stock) REFERENCES stockmetadata(stock)
 );
 
 -- Create momentumScores table
-CREATE TABLE IF NOT EXISTS momentumScores (
+CREATE TABLE IF NOT EXISTS momentumscores (
     stock VARCHAR(50) PRIMARY KEY,
-    total_score DECIMAL(10,4),
-    raw_momentum_6m DECIMAL(10,4),
-    raw_momentum_3m DECIMAL(10,4),
-    raw_momentum_1m DECIMAL(10,4),
-    volatility_adjusted_6m DECIMAL(10,4),
-    volatility_adjusted_3m DECIMAL(10,4),
-    volatility_adjusted_1m DECIMAL(10,4),
-    relative_strength_6m DECIMAL(10,4),
-    relative_strength_3m DECIMAL(10,4),
-    relative_strength_1m DECIMAL(10,4),
-    trend_score DECIMAL(10,4),
-    volume_score DECIMAL(10,4),
-    calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (stock) REFERENCES stockMetadata(stock)
+    total_score NUMERIC(10, 4),
+    momentum_12_2 NUMERIC(10, 4),
+    fip_quality NUMERIC(10, 4),
+    raw_momentum_6m NUMERIC(10, 4),
+    raw_momentum_3m NUMERIC(10, 4),
+    raw_momentum_1m NUMERIC(10, 4),
+    volatility_adjusted NUMERIC(10, 4),
+    smooth_momentum NUMERIC(10, 4),
+    consistency_score NUMERIC(10, 4),
+    trend_strength NUMERIC(10, 4),
+    calculated_date DATE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    FOREIGN KEY (stock) REFERENCES stockmetadata(stock)
 );
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_tickerprice_stock_date ON tickerPrice(stock, date);
-CREATE INDEX IF NOT EXISTS idx_tickerprice_date ON tickerPrice(date);
-CREATE INDEX IF NOT EXISTS idx_stockmetadata_industry ON stockMetadata(industry);
-CREATE INDEX IF NOT EXISTS idx_stockmetadata_sector ON stockMetadata(sector);
-CREATE INDEX IF NOT EXISTS idx_momentumscores_total_score ON momentumScores(total_score DESC);
+CREATE INDEX IF NOT EXISTS idx_stockmetadata_industry ON stockmetadata(industry);
+CREATE INDEX IF NOT EXISTS idx_stockmetadata_sector ON stockmetadata(sector);
+CREATE INDEX IF NOT EXISTS idx_tickerprice_stock ON tickerprice(stock);
+CREATE INDEX IF NOT EXISTS idx_tickerprice_date ON tickerprice(date);
+CREATE INDEX IF NOT EXISTS idx_tickerprice_stock_date ON tickerprice(stock, date);
+CREATE INDEX IF NOT EXISTS idx_momentumscores_calculated_date ON momentumscores(calculated_date);
 
--- Create a function to update last_updated timestamp
-CREATE OR REPLACE FUNCTION update_last_updated_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.last_updated = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+-- Load data from CSV files if they exist
+\copy stockmetadata(stock, company_name, market_cap, sector, industry, exchange, dividend_yield, roce, roe, last_updated) FROM '/docker-entrypoint-initdb.d/data/clean_stock_metadata.csv' WITH CSV HEADER;
 
--- Create trigger to automatically update last_updated
-CREATE TRIGGER update_stockmetadata_last_updated 
-    BEFORE UPDATE ON stockMetadata 
-    FOR EACH ROW 
-    EXECUTE FUNCTION update_last_updated_column();
+\copy tickerprice(stock, date, open, high, low, close, volume) FROM '/docker-entrypoint-initdb.d/data/clean_ticker_price.csv' WITH CSV HEADER;
 
--- Load data from CSV files
-\copy stockMetadata(stock, company_name, market_cap, sector, industry, exchange, dividend_yield, roce, roe, last_updated) FROM '/docker-entrypoint-initdb.d/stock_metadata.csv' WITH CSV HEADER;
+\copy momentumscores(stock, total_score, momentum_12_2, fip_quality, raw_momentum_6m, raw_momentum_3m, raw_momentum_1m, volatility_adjusted, smooth_momentum, consistency_score, trend_strength, calculated_date, created_at) FROM '/docker-entrypoint-initdb.d/data/clean_momentum_scores.csv' WITH CSV HEADER;
 
-\copy tickerPrice(stock, date, open, high, low, close, volume) FROM '/docker-entrypoint-initdb.d/ticker_price.csv' WITH CSV HEADER;
-
-\copy momentumScores(stock, total_score, raw_momentum_6m, raw_momentum_3m, raw_momentum_1m, volatility_adjusted_6m, volatility_adjusted_3m, volatility_adjusted_1m, relative_strength_6m, relative_strength_3m, relative_strength_1m, trend_score, volume_score, calculated_at) FROM '/docker-entrypoint-initdb.d/momentum_scores.csv' WITH CSV HEADER;
-
--- Grant permissions
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO momentum_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO momentum_user;
+-- Update last_updated timestamps
+UPDATE stockmetadata SET last_updated = NOW() WHERE last_updated IS NULL;
+UPDATE tickerprice SET last_updated = NOW() WHERE last_updated IS NULL;
+UPDATE momentumscores SET created_at = NOW() WHERE created_at IS NULL;
