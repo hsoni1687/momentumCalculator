@@ -1,11 +1,8 @@
-<<<<<<< HEAD
 # Environment variables
 .env
 .env.local
 .env.production
 
-=======
->>>>>>> b4287d347bb9491e8b0d684c094c4cf22bb96779
 # Python
 __pycache__/
 *.py[cod]
@@ -27,14 +24,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-<<<<<<< HEAD
-
-# Virtual environments
-=======
 MANIFEST
 
 # Virtual Environment
->>>>>>> b4287d347bb9491e8b0d684c094c4cf22bb96779
 venv/
 env/
 ENV/
@@ -58,28 +50,26 @@ ehthumbs.db
 Thumbs.db
 
 # Logs
-<<<<<<< HEAD
-*.log
 logs/
+*.log
 
 # Database files
 *.db
 *.sqlite
 *.sqlite3
-=======
-logs/
-*.log
-
-# Database
 *.db-journal
 *.db-wal
 *.db-shm
->>>>>>> b4287d347bb9491e8b0d684c094c4cf22bb96779
 
 # Streamlit
 .streamlit/secrets.toml
 
-<<<<<<< HEAD
+# Configuration files (local development)
+web_app/config/local.env
+web_app/config/*.env
+!web_app/config/*.template
+!web_app/config/*.example
+
 # Temporary files
 *.tmp
 *.temp
@@ -106,23 +96,6 @@ coverage.xml
 .mypy_cache/
 .dmypy.json
 dmypy.json
-=======
-# Environment variables
-.env
-.env.local
-.env.production
-
-# Configuration files (local development)
-web_app/config/local.env
-web_app/config/*.env
-!web_app/config/*.template
-!web_app/config/*.example
-# Allow Python config files
-!web_app/config/*.py
-
-# Temporary files
-*.tmp
-*.temp
 
 # Exclude everything except web_app
 *
@@ -130,4 +103,3 @@ web_app/config/*.env
 !web_app/**
 !README.md
 !.gitignore
->>>>>>> b4287d347bb9491e8b0d684c094c4cf22bb96779
