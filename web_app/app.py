@@ -81,7 +81,7 @@ class MomentumWebApp:
         with st.spinner(loading_msg):
             try:
                 # Get stock metadata with filters
-                metadata_query = "SELECT * FROM stockMetadata WHERE 1=1"
+                metadata_query = "SELECT * FROM stockmetadata WHERE 1=1"
                 params = []
                 
                 if industry:
@@ -122,7 +122,7 @@ class MomentumWebApp:
     def get_available_industries(self):
         """Get available industries from database"""
         try:
-            query = "SELECT DISTINCT industry FROM stockMetadata WHERE industry IS NOT NULL ORDER BY industry"
+            query = "SELECT DISTINCT industry FROM stockmetadata WHERE industry IS NOT NULL ORDER BY industry"
             result = self.db.execute_query(query)
             return result['industry'].tolist() if not result.empty else []
         except Exception as e:
@@ -132,7 +132,7 @@ class MomentumWebApp:
     def get_available_sectors(self):
         """Get available sectors from database"""
         try:
-            query = "SELECT DISTINCT sector FROM stockMetadata WHERE sector IS NOT NULL ORDER BY sector"
+            query = "SELECT DISTINCT sector FROM stockmetadata WHERE sector IS NOT NULL ORDER BY sector"
             result = self.db.execute_query(query)
             return result['sector'].tolist() if not result.empty else []
         except Exception as e:

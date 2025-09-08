@@ -49,7 +49,7 @@ class SupabaseDatabase:
     def get_stock_metadata(self, industry_filter: str = None, sector_filter: str = None) -> pd.DataFrame:
         """Get stock metadata with optional filters"""
         try:
-            query = self.client.table('stockMetadata').select('*')
+            query = self.client.table('stockmetadata').select('*')
             
             if industry_filter:
                 query = query.eq('industry', industry_filter)
@@ -102,7 +102,7 @@ class SupabaseDatabase:
             stats = {}
             
             # Get stock metadata count
-            metadata_result = self.client.table('stockMetadata').select('stock', count='exact').execute()
+            metadata_result = self.client.table('stockmetadata').select('stock', count='exact').execute()
             stats['unique_stocks_with_price'] = metadata_result.count
             
             # Get price data count
@@ -123,7 +123,7 @@ class SupabaseDatabase:
                 max_date = date_result.data[0]['date']
                 stats['date_range'] = f"{min_date} to {max_date}"
             
-            stats['tables'] = ['stockMetadata', 'tickerPrice', 'momentumScores']
+            stats['tables'] = ['stockmetadata', 'tickerprice', 'momentumscores']
             
             return stats
             
@@ -179,7 +179,7 @@ class SupabaseDatabase:
     def get_available_industries(self) -> list:
         """Get list of available industries"""
         try:
-            result = self.client.table('stockMetadata').select('industry').execute()
+            result = self.client.table('stockmetadata').select('industry').execute()
             industries = list(set([row['industry'] for row in result.data if row['industry']]))
             return sorted(industries)
         except Exception as e:
@@ -189,7 +189,7 @@ class SupabaseDatabase:
     def get_available_sectors(self) -> list:
         """Get list of available sectors"""
         try:
-            result = self.client.table('stockMetadata').select('sector').execute()
+            result = self.client.table('stockmetadata').select('sector').execute()
             sectors = list(set([row['sector'] for row in result.data if row['sector']]))
             return sorted(sectors)
         except Exception as e:
