@@ -245,13 +245,12 @@ class MomentumWebApp:
         # Get top N stocks
         top_stocks = momentum_df.head(top_n)
         
-        # Prepare display columns
+        # Prepare display columns (matching what momentum calculator returns)
         display_columns = [
             'stock', 'company_name', 'market_cap', 'total_score',
+            'momentum_12_2', 'fip_quality',
             'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
-            'volatility_adjusted_6m', 'volatility_adjusted_3m', 'volatility_adjusted_1m',
-            'relative_strength_6m', 'relative_strength_3m', 'relative_strength_1m',
-            'trend_score', 'volume_score'
+            'volatility_adjusted', 'smooth_momentum', 'consistency_score', 'trend_strength'
         ]
         
         # Add optional columns if they exist
@@ -271,10 +270,9 @@ class MomentumWebApp:
         
         # Format percentage columns
         percentage_columns = [
-            'total_score', 'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
-            'volatility_adjusted_6m', 'volatility_adjusted_3m', 'volatility_adjusted_1m',
-            'relative_strength_6m', 'relative_strength_3m', 'relative_strength_1m',
-            'trend_score', 'volume_score'
+            'total_score', 'momentum_12_2', 'fip_quality',
+            'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
+            'volatility_adjusted', 'smooth_momentum', 'consistency_score', 'trend_strength'
         ]
         
         for col in percentage_columns:
@@ -295,17 +293,15 @@ class MomentumWebApp:
             'company_name': 'Company Name',
             'market_cap': 'Market Cap',
             'total_score': 'Total Score',
+            'momentum_12_2': '12-2 Momentum',
+            'fip_quality': 'FIP Quality',
             'raw_momentum_6m': '6M Momentum',
             'raw_momentum_3m': '3M Momentum',
             'raw_momentum_1m': '1M Momentum',
-            'volatility_adjusted_6m': 'Vol-Adj 6M',
-            'volatility_adjusted_3m': 'Vol-Adj 3M',
-            'volatility_adjusted_1m': 'Vol-Adj 1M',
-            'relative_strength_6m': 'Rel Strength 6M',
-            'relative_strength_3m': 'Rel Strength 3M',
-            'relative_strength_1m': 'Rel Strength 1M',
-            'trend_score': 'Trend Score',
-            'volume_score': 'Volume Score',
+            'volatility_adjusted': 'Vol-Adj Momentum',
+            'smooth_momentum': 'Smooth Momentum',
+            'consistency_score': 'Consistency',
+            'trend_strength': 'Trend Strength',
             'industry': 'Industry',
             'sector': 'Sector',
             'dividend_yield': 'Dividend Yield',
