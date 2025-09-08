@@ -245,21 +245,25 @@ class MomentumWebApp:
         # Get top N stocks
         top_stocks = momentum_df.head(top_n)
         
+        # Debug: Show what columns are actually available
+        st.write("🔍 Debug - Available columns:", list(top_stocks.columns))
+        
         # Prepare display columns (matching what momentum calculator returns)
-        display_columns = [
-            'stock', 'company_name', 'market_cap', 'total_score',
+        base_columns = ['stock', 'company_name', 'market_cap', 'total_score']
+        momentum_columns = [
             'momentum_12_2', 'fip_quality',
             'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
             'volatility_adjusted', 'smooth_momentum', 'consistency_score', 'trend_strength'
         ]
+        optional_columns = ['industry', 'dividend_yield', 'roce', 'roe', 'sector']
         
-        # Add optional columns if they exist
-        available_columns = []
-        for col in ['industry', 'dividend_yield', 'roce', 'roe', 'sector']:
+        # Only include columns that actually exist
+        display_columns = []
+        for col in base_columns + momentum_columns + optional_columns:
             if col in top_stocks.columns:
-                available_columns.append(col)
+                display_columns.append(col)
         
-        display_columns.extend(available_columns)
+        st.write("🔍 Debug - Display columns:", display_columns)
         
         # Create display dataframe
         display_df = top_stocks[display_columns].copy()
@@ -268,7 +272,7 @@ class MomentumWebApp:
         if 'market_cap' in display_df.columns:
             display_df['market_cap'] = display_df['market_cap'].apply(lambda x: f"₹{x:,.0f}Cr")
         
-        # Format percentage columns
+        # Format percentage columns (only if they exist)
         percentage_columns = [
             'total_score', 'momentum_12_2', 'fip_quality',
             'raw_momentum_6m', 'raw_momentum_3m', 'raw_momentum_1m',
