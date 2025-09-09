@@ -1,0 +1,118 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: momentum_postgres
+    environment:
+      POSTGRES_DB: momentum_calc
+      POSTGRES_USER: momentum_user
+      POSTGRES_PASSWORD: momentum_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./data:/docker-entrypoint-initdb.d/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U momentum_user -d momentum_calc"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - momentum_network
+
+  # Data Service - Handles stock data updates and database operations
+  data-service:
+    build:
+      context: .
+      dockerfile: services/data-service/Dockerfile
+    container_name: momentum_data_service
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: momentum_calc
+      DATABASE_USER: momentum_user
+      DATABASE_PASSWORD: momentum_password
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - momentum_network
+
+  # Momentum Service - Handles momentum calculations and API responses
+  momentum-service:
+    build:
+      context: .
+      dockerfile: services/momentum-service/Dockerfile
+    container_name: momentum_momentum_service
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: momentum_calc
+      DATABASE_USER: momentum_user
+      DATABASE_PASSWORD: momentum_password
+      DATA_SERVICE_URL: http://data-service:8001
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      data-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - momentum_network
+
+  # Frontend - Next.js application
+  frontend:
+    build:
+      context: ./frontend-nextjs
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    container_name: momentum_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      momentum-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - momentum_network
+
+  # Nginx Load Balancer (Optional - for production)
+  nginx:
+    image: nginx:alpine
+    container_name: momentum_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx-microservices.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - momentum-service
+      - data-service
+      - frontend
+    networks:
+      - momentum_network
+
+volumes:
+  postgres_data:
+
+networks:
+  momentum_network:
+    driver: bridge
