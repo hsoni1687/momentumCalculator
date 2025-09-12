@@ -9,9 +9,65 @@ CREATE TABLE IF NOT EXISTS stockmetadata (
     sector VARCHAR(100),
     industry VARCHAR(100),
     exchange VARCHAR(10),
+    
+    -- Basic Financial Attributes
     dividend_yield NUMERIC(5, 2),
     roce NUMERIC(5, 2),
     roe NUMERIC(5, 2),
+    
+    -- Financial Ratios
+    pe_ratio NUMERIC(10, 2),
+    forward_pe NUMERIC(10, 2),
+    pb_ratio NUMERIC(10, 2),
+    ps_ratio NUMERIC(10, 2),
+    peg_ratio NUMERIC(10, 2),
+    beta NUMERIC(10, 2),
+    ev_to_revenue NUMERIC(10, 2),
+    ev_to_ebitda NUMERIC(10, 2),
+    
+    -- Profitability Metrics
+    gross_margin NUMERIC(5, 2),
+    operating_margin NUMERIC(5, 2),
+    profit_margin NUMERIC(5, 2),
+    ebitda_margin NUMERIC(5, 2),
+    roa NUMERIC(5, 2),
+    
+    -- Growth Metrics
+    revenue_growth NUMERIC(5, 2),
+    earnings_growth NUMERIC(5, 2),
+    quarterly_earnings_growth NUMERIC(5, 2),
+    
+    -- Dividend Information
+    dividend_rate NUMERIC(10, 2),
+    payout_ratio NUMERIC(5, 2),
+    ex_dividend_date DATE,
+    dividend_date DATE,
+    
+    -- Balance Sheet Data
+    total_cash BIGINT,
+    total_debt BIGINT,
+    debt_to_equity NUMERIC(10, 2),
+    current_ratio NUMERIC(10, 2),
+    quick_ratio NUMERIC(10, 2),
+    total_revenue BIGINT,
+    cash_per_share NUMERIC(10, 2),
+    
+    -- Valuation Metrics
+    enterprise_value BIGINT,
+    book_value NUMERIC(10, 2),
+    price_to_book NUMERIC(10, 2),
+    
+    -- Market Data
+    current_price NUMERIC(10, 2),
+    previous_close NUMERIC(10, 2),
+    day_low NUMERIC(10, 2),
+    day_high NUMERIC(10, 2),
+    fifty_two_week_low NUMERIC(10, 2),
+    fifty_two_week_high NUMERIC(10, 2),
+    volume BIGINT,
+    average_volume BIGINT,
+    shares_outstanding BIGINT,
+    
     last_updated TIMESTAMP DEFAULT NOW()
 );
 

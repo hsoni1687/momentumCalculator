@@ -8,6 +8,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 from datetime import date, datetime
 from sqlalchemy import text
+from config.database_queries import DatabaseQueries
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ class MomentumStorage:
             logger.error(f"Error storing momentum scores: {e}")
             return False
     
-    def get_momentum_scores_for_date(self, calculation_date: date = None, limit: int = None) -> pd.DataFrame:
+    def get_momentum_scores_for_date(self, calculation_date: date = None, limit: int = None, industry: str = None, sector: str = None) -> pd.DataFrame:
         """
         Get momentum scores for a specific date
         
@@ -116,25 +117,116 @@ class MomentumStorage:
         
         try:
             query = """
-                SELECT ms.*, sm.company_name, sm.sector, sm.industry, sm.last_price_date
+                SELECT ms.*, sm.company_name, sm.sector, sm.industry, sm.last_price_date, sm.market_cap
                 FROM momentum_scores ms
                 JOIN stockmetadata sm ON ms.stock = sm.stock
                 WHERE ms.calculation_date = %s
-                ORDER BY ms.momentum_score DESC
             """
             
             params = [calculation_date]
+            
+            # Add industry filter if specified
+            if industry:
+                query += " AND sm.industry = %s"
+                params.append(industry)
+            
+            # Add sector filter if specified
+            if sector:
+                query += " AND sm.sector = %s"
+                params.append(sector)
+            
+            query += " ORDER BY sm.market_cap DESC, ms.momentum_score DESC"
+            
             if limit:
                 query += " LIMIT %s"
                 params.append(limit)
             
             result = self.db.execute_query(query, tuple(params))
-            logger.info(f"Retrieved {len(result)} momentum scores for {calculation_date}")
+            logger.debug(f"Retrieved {len(result)} momentum scores for {calculation_date}")
             return result
             
         except Exception as e:
             logger.error(f"Error getting momentum scores for date {calculation_date}: {e}")
             return pd.DataFrame()
+    
+    def get_latest_momentum_date(self) -> Optional[date]:
+        """
+        Get the latest date for which momentum scores are available
+        
+        Returns:
+            Optional[date]: Latest date with momentum scores, or None if none exist
+        """
+        try:
+            query = "SELECT MAX(calculation_date) as latest_date FROM momentum_scores"
+            result = self.db.execute_query(query)
+            
+            if not result.empty and result.iloc[0]['latest_date'] is not None:
+                latest_date = result.iloc[0]['latest_date']
+                if hasattr(latest_date, 'date'):
+                    latest_date = latest_date.date()
+                logger.info(f"Latest momentum scores available for date: {latest_date}")
+                return latest_date
+            else:
+                logger.warning("No momentum scores found in database")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting latest momentum date: {e}")
+            return None
+    
+    def get_best_momentum_date(self) -> Optional[date]:
+        """
+        Get the best date for momentum scores (most recent date with most stocks)
+        
+        Returns:
+            Optional[date]: Best date with momentum scores, or None if none exist
+        """
+        try:
+            # Get all dates with their stock counts, ordered by date desc
+            query = """
+            SELECT calculation_date, COUNT(*) as stock_count 
+            FROM momentum_scores 
+            GROUP BY calculation_date 
+            ORDER BY calculation_date DESC
+            """
+            result = self.db.execute_query(query)
+            
+            if result.empty:
+                logger.warning("No momentum scores found in database")
+                return None
+            
+            # Find the most recent date with the most stocks
+            # Start with the latest date and work backwards
+            max_stocks = 0
+            best_date = None
+            
+            for _, row in result.iterrows():
+                date_val = row['calculation_date']
+                stock_count = row['stock_count']
+                
+                if hasattr(date_val, 'date'):
+                    date_val = date_val.date()
+                
+                # Use this date if it has more stocks than what we've seen
+                if stock_count > max_stocks:
+                    max_stocks = stock_count
+                    best_date = date_val
+                
+                # If we have a good number of stocks (e.g., > 1000), use this date
+                if stock_count > 1000:
+                    logger.info(f"Found good momentum data for {date_val}: {stock_count} stocks")
+                    return date_val
+            
+            if best_date:
+                logger.info(f"Using best momentum date: {best_date} with {max_stocks} stocks")
+                return best_date
+            else:
+                logger.warning("No suitable momentum scores found")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting best momentum date: {e}")
+            return None
     
     def get_stocks_needing_momentum_calculation(self, limit: int, calculation_date: date = None) -> List[str]:
         """

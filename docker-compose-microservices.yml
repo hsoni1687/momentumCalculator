@@ -21,18 +21,19 @@ services:
     networks:
       - momentum_network
 
-  # Data Service - Handles stock data updates and database operations
-  data-service:
+  # Data Service Instance 1 - Handles stock data updates and database operations
+  data-service-1:
     build:
       context: .
       dockerfile: services/data-service/Dockerfile
-    container_name: momentum_data_service
+    container_name: momentum_data_service_1
     environment:
       DATABASE_HOST: postgres
       DATABASE_PORT: 5432
       DATABASE_NAME: momentum_calc
       DATABASE_USER: momentum_user
       DATABASE_PASSWORD: momentum_password
+      SERVICE_INSTANCE: "1"
     ports:
       - "8001:8001"
     depends_on:
@@ -40,9 +41,35 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
-      interval: 10s
+      interval: 30s
       timeout: 5s
-      retries: 5
+      retries: 3
+    networks:
+      - momentum_network
+
+  # Data Service Instance 2 - Handles stock data updates and database operations
+  data-service-2:
+    build:
+      context: .
+      dockerfile: services/data-service/Dockerfile
+    container_name: momentum_data_service_2
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: momentum_calc
+      DATABASE_USER: momentum_user
+      DATABASE_PASSWORD: momentum_password
+      SERVICE_INSTANCE: "2"
+    ports:
+      - "8003:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - momentum_network
 
@@ -58,19 +85,47 @@ services:
       DATABASE_NAME: momentum_calc
       DATABASE_USER: momentum_user
       DATABASE_PASSWORD: momentum_password
-      DATA_SERVICE_URL: http://data-service:8001
+      DATA_SERVICE_URL: http://data-service-1:8001
+      DATA_SERVICE_URL_2: http://data-service-2:8001
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
-      data-service:
+      data-service-1:
+        condition: service_healthy
+      data-service-2:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 10s
+      interval: 30s
       timeout: 5s
-      retries: 5
+      retries: 3
+    networks:
+      - momentum_network
+
+  # Strategy Service - Handles multiple trading strategies
+  strategy-service:
+    build:
+      context: .
+      dockerfile: services/strategy-service/Dockerfile
+    container_name: momentum_strategy_service
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: momentum_calc
+      DATABASE_USER: momentum_user
+      DATABASE_PASSWORD: momentum_password
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8002/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - momentum_network
 
@@ -80,13 +135,12 @@ services:
       context: ./frontend-nextjs
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:80
     container_name: momentum_frontend
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:80
     ports:
       - "3000:3000"
-    depends_on:
-      momentum-service:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
       interval: 10s
@@ -95,7 +149,23 @@ services:
     networks:
       - momentum_network
 
-  # Nginx Load Balancer (Optional - for production)
+  # Strategy Builder UI - New parallel UI for mobile/web
+  strategy-builder:
+    build:
+      context: .
+      dockerfile: frontend-strategy-builder/Dockerfile
+    container_name: momentum_strategy_builder
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:80
+    ports:
+      - "3001:3001"
+    depends_on:
+      - strategy-service
+      - momentum-service
+    networks:
+      - momentum_network
+
+  # Nginx Load Balancer
   nginx:
     image: nginx:alpine
     container_name: momentum_nginx
@@ -105,8 +175,11 @@ services:
       - ./nginx-microservices.conf:/etc/nginx/nginx.conf
     depends_on:
       - momentum-service
-      - data-service
+      - strategy-service
+      - data-service-1
+      - data-service-2
       - frontend
+      - strategy-builder
     networks:
       - momentum_network
 

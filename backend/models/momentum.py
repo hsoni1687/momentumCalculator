@@ -38,7 +38,12 @@ class MomentumService:
             if symbol in historical_data:
                 try:
                     hist_data = historical_data[symbol]
+                    print(f"DEBUG {symbol}: MomentumService passing DataFrame to momentum calculator")
+                    print(f"DEBUG {symbol}: DataFrame shape: {hist_data.shape}")
+                    print(f"DEBUG {symbol}: DataFrame columns: {list(hist_data.columns)}")
+                    print(f"DEBUG {symbol}: DataFrame index type: {type(hist_data.index)}")
                     momentum_score = self.momentum_calculator.calculate_quality_momentum_score(hist_data)
+                    print(f"DEBUG {symbol}: MomentumService got result: {momentum_score}")
                     
                     if momentum_score is not None:
                         # Get last price date from historical data
@@ -151,21 +156,29 @@ class MomentumService:
                 # Convert date column once for all data
                 result['date'] = pd.to_datetime(result['date'])
                 
-                # Rename columns once for all data
-                result.columns = ['stock', 'date', 'Open', 'High', 'Low', 'Close', 'Volume']
+                # Rename columns once for all data (keep lowercase)
+                result.columns = ['stock', 'date', 'open', 'high', 'low', 'close', 'volume']
                 
                 # Group by stock and process each group
                 grouped = result.groupby('stock')
                 for symbol, group in grouped:
                     if not group.empty:
-                        # Set date as index
+                        # Set date as index and ensure it's a DatetimeIndex
                         group = group.set_index('date')
+                        group.index = pd.to_datetime(group.index)
                         group = group.drop('stock', axis=1)
                         
-                        # Calculate Returns column (required by momentum calculator)
-                        group['Returns'] = group['Close'].pct_change()
+                        # Calculate returns column (required by momentum calculator)
+                        group['returns'] = group['close'].pct_change()
                         
+                        # Ensure all columns are properly formatted
                         historical_data[symbol] = group
+                        
+                        # Debug: Print what we're storing
+                        print(f"DEBUG {symbol}: MomentumService stored DataFrame")
+                        print(f"DEBUG {symbol}: DataFrame shape: {group.shape}")
+                        print(f"DEBUG {symbol}: DataFrame columns: {list(group.columns)}")
+                        print(f"DEBUG {symbol}: DataFrame index type: {type(group.index)}")
             
             logger.info(f"Retrieved historical data for {len(historical_data)} stocks from database")
             return historical_data

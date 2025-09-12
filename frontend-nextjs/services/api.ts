@@ -13,26 +13,31 @@ export interface MomentumScore {
   sector: string;
   industry: string;
   momentum_score: number;
-  fip_quality: number;
+  current_price?: number;
+  market_cap?: number;
+  
+  // Optional detailed momentum fields (may not be present in all responses)
+  fip_quality?: number;
   last_price_date?: string;
+  calculation_date?: string;
   
   // 12-2 Month momentum (Alpha Architect primary measure)
-  raw_momentum_12_2: number;
+  raw_momentum_12_2?: number;
   
   // True momentum (considering trend consistency and quality)
-  true_momentum_6m: number;
-  true_momentum_3m: number;
-  true_momentum_1m: number;
+  true_momentum_6m?: number;
+  true_momentum_3m?: number;
+  true_momentum_1m?: number;
   
   // Simple returns for reference
-  raw_return_6m: number;
-  raw_return_3m: number;
-  raw_return_1m: number;
+  raw_return_6m?: number;
+  raw_return_3m?: number;
+  raw_return_1m?: number;
   
   // Legacy fields for backward compatibility
-  raw_momentum_6m: number;
-  raw_momentum_3m: number;
-  raw_momentum_1m: number;
+  raw_momentum_6m?: number;
+  raw_momentum_3m?: number;
+  raw_momentum_1m?: number;
 }
 
 export interface MomentumResponse {
@@ -45,6 +50,7 @@ export interface MomentumResponse {
     sector?: string;
     top_n: number;
   };
+  market_status?: string;
 }
 
 export interface StocksResponse {
@@ -78,7 +84,7 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000',
+      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:80',
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
@@ -137,7 +143,8 @@ class ApiClient {
     limit: number = 50,
     industry?: string,
     sector?: string,
-    topN: number = 10
+    topN: number = 10,
+    signal?: AbortSignal
   ): Promise<MomentumResponse> {
     const params: any = { limit, top_n: topN };
     if (industry) params.industry = industry;
@@ -145,6 +152,7 @@ class ApiClient {
 
     const response: AxiosResponse<MomentumResponse> = await this.client.get('/momentum', {
       params,
+      signal, // Pass the abort signal
     });
     return response.data;
   }

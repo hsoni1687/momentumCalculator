@@ -60,6 +60,8 @@ class UpdateTracker:
             WHERE sut.stock IS NULL 
                OR sut.last_updated < CURRENT_DATE::date 
                OR sut.update_status = 'failed'
+               OR sut.update_status = 'pending'
+               OR sut.update_status = 'in_progress'
             ORDER BY sm.market_cap DESC
             """
             

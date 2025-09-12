@@ -19,17 +19,20 @@ const TopStocks: React.FC<TopStocksProps> = ({ topStocks }) => {
     setExpandedStocks(newExpanded);
   };
 
-  const formatPercentage = (value: number) => {
+  const formatPercentage = (value: number | undefined) => {
+    if (value === undefined || value === null || (!value && value !== 0)) return 'N/A';
     return `${(value * 100).toFixed(2)}%`;
   };
 
   const getScoreColor = (score: number) => {
+    if (!score && score !== 0) return 'text-gray-500';
     if (score >= 0.7) return 'text-success-600';
     if (score >= 0.4) return 'text-warning-600';
     return 'text-danger-600';
   };
 
-  const getMomentumColor = (value: number) => {
+  const getMomentumColor = (value: number | undefined) => {
+    if (value === undefined || value === null || (!value && value !== 0)) return 'text-gray-500';
     if (value > 0.1) return 'text-success-600';  // >10% positive momentum
     if (value > 0) return 'text-warning-600';    // 0-10% positive momentum
     if (value === 0) return 'text-gray-600';     // Zero momentum (neutral)
@@ -37,6 +40,7 @@ const TopStocks: React.FC<TopStocksProps> = ({ topStocks }) => {
   };
 
   const getScoreBadgeColor = (score: number) => {
+    if (!score && score !== 0) return 'badge-secondary';
     if (score >= 0.7) return 'badge-success';
     if (score >= 0.4) return 'badge-warning';
     return 'badge-danger';
@@ -87,12 +91,21 @@ const TopStocks: React.FC<TopStocksProps> = ({ topStocks }) => {
                     <div>
                       <h3 className="font-semibold text-gray-900">{stock.stock}</h3>
                       <p className="text-sm text-gray-600">{stock.name}</p>
+                      {stock.calculation_date && (
+                        <p className="text-xs text-gray-500">
+                          📅 Calculated: {new Date(stock.calculation_date).toLocaleDateString('en-IN', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      )}
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-3">
                     <span className={`badge ${getScoreBadgeColor(stock.momentum_score)}`}>
-                      Score: {stock.momentum_score.toFixed(2)}
+                      Score: {stock.momentum_score !== null && stock.momentum_score !== undefined ? stock.momentum_score.toFixed(2) : 'N/A'}
                     </span>
                     {isExpanded ? (
                       <ChevronUp className="h-4 w-4 text-gray-400" />

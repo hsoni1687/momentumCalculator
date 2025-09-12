@@ -11,11 +11,13 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ momentumScores }) => {
   const [sortField, setSortField] = useState<keyof MomentumScore>('momentum_score');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const formatPercentage = (value: number) => {
+  const formatPercentage = (value: number | undefined) => {
+    if (value === undefined || value === null || (!value && value !== 0)) return 'N/A';
     return `${(value * 100).toFixed(2)}%`;
   };
 
   const getScoreColor = (score: number) => {
+    if (!score && score !== 0) return 'text-gray-500';
     if (score >= 0.7) return 'text-success-600';
     if (score >= 0.4) return 'text-warning-600';
     return 'text-danger-600';
@@ -66,11 +68,11 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ momentumScores }) => {
         `"${stock.name}"`,
         `"${stock.sector}"`,
         `"${stock.industry}"`,
-        stock.momentum_score.toFixed(4),
-        stock.raw_momentum_12_2.toFixed(4),
-        stock.raw_momentum_6m.toFixed(4),
-        stock.raw_momentum_3m.toFixed(4),
-        stock.raw_momentum_1m.toFixed(4)
+        stock.momentum_score !== null && stock.momentum_score !== undefined ? stock.momentum_score.toFixed(4) : 'N/A',
+        stock.raw_momentum_12_2 ? stock.raw_momentum_12_2.toFixed(4) : 'N/A',
+        stock.raw_momentum_6m ? stock.raw_momentum_6m.toFixed(4) : 'N/A',
+        stock.raw_momentum_3m ? stock.raw_momentum_3m.toFixed(4) : 'N/A',
+        stock.raw_momentum_1m ? stock.raw_momentum_1m.toFixed(4) : 'N/A'
       ].join(','))
     ].join('\n');
 
@@ -182,12 +184,25 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ momentumScores }) => {
           <tbody>
             {filteredAndSortedData.map((stock, index) => (
               <tr key={stock.stock} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                <td className="py-3 px-4 font-medium text-gray-900">{stock.stock}</td>
+                <td className="py-3 px-4 font-medium text-gray-900">
+                  <div>
+                    <div>{stock.stock}</div>
+                    {stock.calculation_date && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        📅 {new Date(stock.calculation_date).toLocaleDateString('en-IN', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </td>
                 <td className="py-3 px-4 text-gray-600">{stock.name}</td>
                 <td className="py-3 px-4 text-gray-600">{stock.sector}</td>
                 <td className="py-3 px-4">
                   <span className={`font-medium ${getScoreColor(stock.momentum_score)}`}>
-                    {stock.momentum_score.toFixed(4)}
+                    {stock.momentum_score !== null && stock.momentum_score !== undefined ? stock.momentum_score.toFixed(4) : 'N/A'}
                   </span>
                 </td>
                 <td className="py-3 px-4 text-gray-600">{formatPercentage(stock.raw_momentum_12_2)}</td>

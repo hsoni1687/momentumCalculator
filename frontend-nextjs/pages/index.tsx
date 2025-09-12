@@ -1,10 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '@/components/Layout';
 import Sidebar from '@/components/Sidebar';
-import TopStocks from '@/components/TopStocks';
-import ResultsTable from '@/components/ResultsTable';
-import SummaryStats from '@/components/SummaryStats';
-import MomentumEducation from '@/components/MomentumEducation';
+import StrategyTabs from '@/components/StrategyTabs';
 import { apiClient, MomentumScore, HealthResponse } from '@/services/api';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 
@@ -15,9 +12,7 @@ const Home: React.FC = () => {
   const [sector, setSector] = useState('');
   const [topN, setTopN] = useState(10);
   
-  const [momentumScores, setMomentumScores] = useState<MomentumScore[]>([]);
-  const [topStocks, setTopStocks] = useState<MomentumScore[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [marketStatus, setMarketStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   
   const [isBackendConnected, setIsBackendConnected] = useState(false);
@@ -29,21 +24,12 @@ const Home: React.FC = () => {
 
   // Check backend health on component mount
   useEffect(() => {
-    // Temporarily skip health check to show main interface
-    console.log('Setting backend as connected...');
-    setIsBackendConnected(true);
-    setIsDatabaseConnected(true);
-    setHealthData({
-      status: 'healthy',
-      database: 'connected',
-      version: '1.0.0'
-    });
-    
     // Load industries and sectors
     loadIndustries();
     loadSectors();
     
-    // checkBackendHealth();
+    // Check backend health
+    checkBackendHealth();
   }, []);
 
 
@@ -62,44 +48,10 @@ const Home: React.FC = () => {
     }
   };
 
-  const loadMomentumData = useCallback(async () => {
-    if (!isBackendConnected) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      console.log('Loading momentum data...');
-      const data = await apiClient.calculateMomentum(
-        nStocks,
-        industry || undefined,
-        sector || undefined,
-        topN
-      );
-
-      console.log('Momentum data loaded:', data);
-      setMomentumScores(data.momentum_scores);
-      setTopStocks(data.top_stocks);
-    } catch (err: any) {
-      console.error('Error loading momentum data:', err);
-      setError(err.message || 'Failed to load momentum data');
-      setMomentumScores([]);
-      setTopStocks([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isBackendConnected, nStocks, industry, sector, topN]);
-
-  // Load data when filters change
-  useEffect(() => {
-    if (isBackendConnected) {
-      loadMomentumData();
-    }
-  }, [loadMomentumData]);
 
   const loadIndustries = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/industries`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:80'}/industries`);
       const data = await response.json();
       setIndustries(data.industries || []);
     } catch (err) {
@@ -109,7 +61,7 @@ const Home: React.FC = () => {
 
   const loadSectors = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/sectors`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:80'}/sectors`);
       const data = await response.json();
       setSectors(data.sectors || []);
     } catch (err) {
@@ -119,9 +71,6 @@ const Home: React.FC = () => {
 
   const handleRefresh = () => {
     checkBackendHealth();
-    if (isBackendConnected) {
-      loadMomentumData();
-    }
   };
 
   return (
@@ -130,25 +79,15 @@ const Home: React.FC = () => {
         {/* Header */}
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gradient mb-4">
-            📈 Indian Stock Momentum Calculator
+            📈 Indian Stock Strategy Analyzer
           </h1>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Modern momentum analysis for Indian stocks using the &quot;Frog in the Pan&quot; methodology.
-            Analyze multiple time periods to identify high-quality momentum stocks with our
-            separated UI and Backend architecture.
+            Advanced trading strategy analysis for Indian stocks. Analyze multiple strategies including
+            momentum, breakout patterns, moving averages, volatility, and mean reversion with our
+            modular microservices architecture.
           </p>
         </div>
 
-        {/* Error Display */}
-        {error && (
-          <div className="bg-danger-50 border border-danger-200 rounded-lg p-4">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="h-5 w-5 text-danger-600" />
-              <span className="text-danger-800 font-medium">Error</span>
-            </div>
-            <p className="text-danger-700 mt-1">{error}</p>
-          </div>
-        )}
 
         {/* Backend Status */}
         {!isBackendConnected && (
@@ -158,7 +97,7 @@ const Home: React.FC = () => {
               <span className="text-warning-800 font-medium">Backend Disconnected</span>
             </div>
             <p className="text-warning-700 mt-1">
-              Please ensure the backend API is running at {process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}
+              Please ensure the backend API is running at {process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:80'}
             </p>
           </div>
         )}
@@ -182,35 +121,19 @@ const Home: React.FC = () => {
                 isDatabaseConnected={isDatabaseConnected}
                 industries={industries}
                 sectors={sectors}
+                isLoading={false}
               />
             </div>
 
             {/* Main Content */}
-            <div className="lg:col-span-3 space-y-8">
-              {/* Loading State */}
-              {isLoading && (
-                <div className="card text-center py-12">
-                  <Loader2 className="h-8 w-8 text-primary-600 animate-spin mx-auto mb-4" />
-                  <p className="text-gray-600">Calculating momentum scores...</p>
-                </div>
-              )}
-
-              {/* Momentum Education */}
-              <MomentumEducation />
-
-              {/* Content */}
-              {!isLoading && (
-                <>
-                  {/* Top Stocks */}
-                  <TopStocks topStocks={topStocks} />
-
-                  {/* Summary Statistics */}
-                  <SummaryStats momentumScores={momentumScores} />
-
-                  {/* Results Table */}
-                  <ResultsTable momentumScores={momentumScores} />
-                </>
-              )}
+            <div className="lg:col-span-3">
+              <StrategyTabs
+                nStocks={nStocks}
+                industry={industry}
+                sector={sector}
+                topN={topN}
+                isBackendConnected={isBackendConnected}
+              />
             </div>
           </div>
         ) : (
@@ -218,7 +141,7 @@ const Home: React.FC = () => {
             <AlertCircle className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Backend Not Available</h2>
             <p className="text-gray-600 mb-4">
-              Please start the backend API to use the momentum calculator.
+              Please start the backend API to use the strategy analyzer.
             </p>
             <button
               onClick={handleRefresh}

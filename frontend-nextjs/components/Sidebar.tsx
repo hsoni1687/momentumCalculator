@@ -15,6 +15,7 @@ interface SidebarProps {
   isDatabaseConnected: boolean;
   industries: string[];
   sectors: string[];
+  isLoading?: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -31,6 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   isDatabaseConnected,
   industries,
   sectors,
+  isLoading = false,
 }) => {
   return (
     <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 p-6 h-fit">
@@ -43,6 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="mb-6">
         <label className="label">
           Number of stocks to analyze
+          {isLoading && <span className="text-xs text-blue-600 ml-2">(Loading...)</span>}
         </label>
         <input
           type="range"
@@ -50,12 +53,15 @@ const Sidebar: React.FC<SidebarProps> = ({
           max="2525"
           value={nStocks}
           onChange={(e) => setNStocks(Number(e.target.value))}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+          disabled={isLoading}
+          className={`w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider ${
+            isLoading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
         />
         <div className="flex justify-between text-sm text-gray-500 mt-1">
           <span>10</span>
           <span className="font-medium text-primary-600">{nStocks}</span>
-          <span>200</span>
+          <span>2525</span>
         </div>
       </div>
 
@@ -97,6 +103,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="mb-6">
         <label className="label">
           Top N stocks to display
+          {isLoading && <span className="text-xs text-blue-600 ml-2">(Loading...)</span>}
         </label>
         <input
           type="range"
@@ -104,7 +111,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           max="50"
           value={topN}
           onChange={(e) => setTopN(Number(e.target.value))}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+          disabled={isLoading}
+          className={`w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider ${
+            isLoading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
         />
         <div className="flex justify-between text-sm text-gray-500 mt-1">
           <span>5</span>

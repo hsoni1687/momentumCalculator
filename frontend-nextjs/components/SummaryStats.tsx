@@ -88,7 +88,7 @@ const SummaryStats: React.FC<SummaryStatsProps> = ({ momentumScores }) => {
             <div className="flex items-center justify-center w-12 h-12 bg-success-100 text-success-600 rounded-lg mx-auto mb-3">
               <TrendingUp className="h-6 w-6" />
             </div>
-            <div className="text-2xl font-bold text-gray-900">{stats.avgMomentum.toFixed(3)}</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.avgMomentum ? stats.avgMomentum.toFixed(3) : 'N/A'}</div>
             <div className="text-sm text-gray-500">Average Momentum Score</div>
           </div>
 
@@ -96,7 +96,7 @@ const SummaryStats: React.FC<SummaryStatsProps> = ({ momentumScores }) => {
             <div className="flex items-center justify-center w-12 h-12 bg-warning-100 text-warning-600 rounded-lg mx-auto mb-3">
               <Award className="h-6 w-6" />
             </div>
-            <div className="text-2xl font-bold text-gray-900">{stats.maxMomentum.toFixed(3)}</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.maxMomentum ? stats.maxMomentum.toFixed(3) : 'N/A'}</div>
             <div className="text-sm text-gray-500">Highest Momentum Score</div>
           </div>
 

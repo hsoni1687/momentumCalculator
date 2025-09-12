@@ -265,22 +265,30 @@ class MomentumCalculator:
             # If there's any issue with the checks, continue
             pass
         
-        # Get close prices - use uppercase 'Close' column
+        # Get close prices - use lowercase 'close' column
         try:
-            close_prices = hist_data['Close']
-            returns = hist_data['Returns'].dropna()
+            # Debug: Print what we're receiving
+            print(f"DEBUG MomentumCalculator: Received DataFrame")
+            print(f"DEBUG MomentumCalculator: DataFrame shape: {hist_data.shape}")
+            print(f"DEBUG MomentumCalculator: DataFrame columns: {list(hist_data.columns)}")
+            print(f"DEBUG MomentumCalculator: DataFrame index type: {type(hist_data.index)}")
+            print(f"DEBUG MomentumCalculator: DataFrame head:")
+            print(hist_data.head())
+            
+            close_prices = hist_data['close']
+            returns = hist_data['returns'].dropna()
             
             # Ensure we have a proper datetime index
             if not isinstance(hist_data.index, pd.DatetimeIndex):
-                if 'Date' in hist_data.columns:
-                    hist_data = hist_data.set_index('Date')
-                    close_prices = hist_data['Close']
-                    returns = hist_data['Returns'].dropna()
+                if 'date' in hist_data.columns:
+                    hist_data = hist_data.set_index('date')
+                    close_prices = hist_data['close']
+                    returns = hist_data['returns'].dropna()
                 else:
                     # Create a dummy datetime index
                     hist_data.index = pd.date_range('2024-01-01', periods=len(hist_data), freq='D')
-                    close_prices = hist_data['Close']
-                    returns = hist_data['Returns'].dropna()
+                    close_prices = hist_data['close']
+                    returns = hist_data['returns'].dropna()
                     
         except KeyError as e:
             logger.error(f"Missing required column in historical data: {e}")

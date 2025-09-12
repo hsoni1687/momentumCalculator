@@ -37,14 +37,27 @@ class DatabaseService:
         """Get price data for a specific stock symbol"""
         try:
             price_data = self.db.get_price_data(symbol)
+            logger.info(f"DEBUG {symbol}: Raw price data shape: {price_data.shape}")
+            logger.info(f"DEBUG {symbol}: Raw price data columns: {list(price_data.columns) if not price_data.empty else 'Empty DataFrame'}")
+            
             if not price_data.empty:
                 # Convert to expected format
                 price_data = price_data.sort_values('date')
-                price_data = price_data[['open', 'high', 'low', 'close', 'volume']]
-                price_data.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+                logger.info(f"DEBUG {symbol}: After sort, columns: {list(price_data.columns)}")
                 
-                # Calculate Returns column
-                price_data['Returns'] = price_data['Close'].pct_change()
+                # Check if required columns exist
+                required_cols = ['open', 'high', 'low', 'close', 'volume']
+                missing_cols = [col for col in required_cols if col not in price_data.columns]
+                if missing_cols:
+                    logger.error(f"DEBUG {symbol}: Missing columns: {missing_cols}")
+                    return pd.DataFrame()
+                
+                price_data = price_data[['date', 'open', 'high', 'low', 'close', 'volume']]
+                # Keep column names lowercase
+                price_data.columns = ['date', 'open', 'high', 'low', 'close', 'volume']
+                
+                # Calculate returns column (lowercase)
+                price_data['returns'] = price_data['close'].pct_change()
                 
             logger.info(f"Retrieved price data for {symbol}: {len(price_data)} records")
             return price_data
@@ -67,12 +80,13 @@ class DatabaseService:
     def get_unique_industries(self) -> pd.DataFrame:
         """Get unique industries that have actual stocks with price data"""
         try:
+            # Simplified query - just get all industries from stockmetadata
+            # The frontend will handle filtering based on available data
             query = """
-            SELECT DISTINCT sm.industry 
-            FROM stockmetadata sm 
-            WHERE sm.industry IS NOT NULL 
-            AND EXISTS (SELECT 1 FROM tickerprice tp WHERE tp.stock = sm.stock)
-            ORDER BY sm.industry
+            SELECT DISTINCT industry 
+            FROM stockmetadata 
+            WHERE industry IS NOT NULL 
+            ORDER BY industry
             """
             return self.db.execute_query(query)
         except Exception as e:
@@ -82,12 +96,13 @@ class DatabaseService:
     def get_unique_sectors(self) -> pd.DataFrame:
         """Get unique sectors that have actual stocks with price data"""
         try:
+            # Simplified query - just get all sectors from stockmetadata
+            # The frontend will handle filtering based on available data
             query = """
-            SELECT DISTINCT sm.sector 
-            FROM stockmetadata sm 
-            WHERE sm.sector IS NOT NULL 
-            AND EXISTS (SELECT 1 FROM tickerprice tp WHERE tp.stock = sm.stock)
-            ORDER BY sm.sector
+            SELECT DISTINCT sector 
+            FROM stockmetadata 
+            WHERE sector IS NOT NULL 
+            ORDER BY sector
             """
             return self.db.execute_query(query)
         except Exception as e:
